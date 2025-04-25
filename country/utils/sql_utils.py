@@ -3,7 +3,7 @@ import logging
 import os
 import sqlite3
 
-from temp_country.utils.logger import configure_logger
+from country.utils.logger import configure_logger
 
 
 logger = logging.getLogger(__name__)
