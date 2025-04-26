@@ -51,3 +51,30 @@ class FavoritesModel:
         self.favorites.clear()
         logger.info("Cleared all favorites")
 
+    
+    def compare_favorites(self, name1: str, name2: str) -> dict:
+    """
+    Compare two favorite countries and return key differences.
+    
+    Args:
+        name1 (str): The name of the first country.
+        name2 (str): The name of the second country.
+
+    Returns:
+        dict: Dictionary with comparison results.
+    """
+    if name1 not in self.favorites or name2 not in self.favorites:
+        raise ValueError("Both countries must be in favorites to compare.")
+
+    country1 = self.get_country(name1)
+    country2 = self.get_country(name2)
+
+    return {
+        "countries": (country1.name, country2.name),
+        "population_difference": abs(country1.population - country2.population),
+        "area_difference": abs(country1.area_km2 - country2.area_km2),
+        "shared_languages": list(set(country1.languages) & set(country2.languages)),
+        "shared_borders": list(set(country1.borders) & set(country2.borders)),
+        "currencies": (country1.currencies, country2.currencies)
+    }
+
