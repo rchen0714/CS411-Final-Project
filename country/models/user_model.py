@@ -4,8 +4,8 @@ import os
 import sqlite3
 import bcrypt
 
-from utils.logger import configure_logger
-from utils.sql_utils import get_db_connection
+from country.utils.logger import configure_logger
+from country.utils.sql_utils import get_db_connection
 
 logger = logging.getLogger(__name__)
 configure_logger(logger)

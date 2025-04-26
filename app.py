@@ -5,9 +5,9 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from config import ProductionConfig
 
 from country.db import db
-from country.models.country_model import Country
+from country.models.country_model import CountryData
 from country.models.favorites_model import FavoritesModel
-from country.models.user_model import Users
+from country.models.user_model import User
 from country.utils.logger import configure_logger
 
 
