@@ -4,6 +4,9 @@
 # 1. Optional: chmod +x setup_venv.sh
 # 2. ./setup_venv.sh   
 # 3. source venv/bin/activate
+
+# Check PYTHONPATH
+
 # 4. pytest
 #
 #

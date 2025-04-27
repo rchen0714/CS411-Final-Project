@@ -93,10 +93,12 @@ def get_country_with_cache(name: str, cache: dict, ttl: dict, ttl_seconds: int) 
         logger.debug(f"Country '{name}' retrieved from cache")
         return cache[name]
 
-    country = get_or_fetch_country(name)
-    if not country:
-        logger.error(f"Country '{name}' not found via API or DB")
-        raise ValueError(f"Country '{name}' could not be found")
+    try:
+        country = CountryData.get_country_by_name(name)
+        logger.info(f"Country name {name} loaded from DB")
+    except ValueError as e:
+        logger.error(f"Country name {name} not found in DB: {e}")
+        raise ValueError(f"Country name {name} not found in database") from e
 
     cache[name] = country
     ttl[name] = now + ttl_seconds

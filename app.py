@@ -7,7 +7,7 @@ from config import ProductionConfig
 from country.db import db
 from country.models.country_model import CountryData
 from country.models.favorites_model import FavoritesModel
-from country.models.user_model import User
+from country.models.user_model import Users
 from country.utils.logger import configure_logger
 
 
@@ -50,7 +50,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             "message": "Authentication required"
         }), 401)
 
-    playlist_model = PlaylistModel()
+    favorites_model = FavoritesModel()
 
     @app.route('/api/health', methods=['GET'])
     def healthcheck() -> Response:
@@ -171,7 +171,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
     @app.route('/api/logout', methods=['POST'])
     @login_required
     def logout() -> Response:
-        """Log out the current user.
+        """Log out the favorite user.
 
         Returns:
             JSON response indicating the success of the logout operation.
@@ -186,7 +186,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
     @app.route('/api/change-password', methods=['POST'])
     @login_required
     def change_password() -> Response:
-        """Change the password for the current user.
+        """Change the password for the favorite user.
 
         Expected JSON Input:
             - new_password (str): The new password to set.
@@ -208,7 +208,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": "New password is required"
                 }), 400)
 
-            username = current_user.username
+            username = favorite_user.username
             Users.update_password(username, new_password)
             return make_response(jsonify({
                 "status": "success",
@@ -259,33 +259,33 @@ def create_app(config_class=ProductionConfig) -> Flask:
 
     ##########################################################
     #
-    # Songs
+    # CountryData
     #
     ##########################################################
 
-    @app.route('/api/reset-songs', methods=['DELETE'])
-    def reset_songs() -> Response:
-        """Recreate the songs table to delete songs.
+    @app.route('/api/reset-countries', methods=['DELETE'])
+    def reset_countries() -> Response:
+        """Recreate the countries table to delete countries.
 
         Returns:
-            JSON response indicating the success of recreating the Songs table.
+            JSON response indicating the success of recreating the CountryData table.
 
         Raises:
-            500 error if there is an issue recreating the Songs table.
+            500 error if there is an issue recreating the CountryData table.
         """
         try:
-            app.logger.info("Received request to recreate Songs table")
+            app.logger.info("Received request to recreate CountryData table")
             with app.app_context():
-                Songs.__table__.drop(db.engine)
-                Songs.__table__.create(db.engine)
-            app.logger.info("Songs table recreated successfully")
+                CountryData.__table__.drop(db.engine)
+                CountryData.__table__.create(db.engine)
+            app.logger.info("CountryData table recreated successfully")
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Songs table recreated successfully"
+                "message": f"CountryData table recreated successfully"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Songs table recreation failed: {e}")
+            app.logger.error(f"CountryData table recreation failed: {e}")
             return make_response(jsonify({
                 "status": "error",
                 "message": "An internal error occurred while deleting users",
@@ -293,32 +293,36 @@ def create_app(config_class=ProductionConfig) -> Flask:
             }), 500)
 
 
-    @app.route('/api/create-song', methods=['POST'])
+    @app.route('/api/create-country', methods=['POST'])
     @login_required
-    def add_song() -> Response:
-        """Route to add a new song to the catalog.
+    def add_country() -> Response:
+        """Route to add a new country to the database.
 
         Expected JSON Input:
-            - artist (str): The artist's name.
-            - title (str): The song title.
-            - year (int): The year the song was released.
-            - genre (str): The genre of the song.
-            - duration (int): The duration of the song in seconds.
+            name (str): The name of the country.
+            capital (str): The capital city of the country.
+            region (str): The geographic region where the country is located.
+            population (int): The population of the country.
+            languages (list[str]): A list of languages spoken in the country.
+            currencies (list[str]): A list of the country's official currencies.
+            borders (list[str] | None): A list of neighboring country codes (if applicable).
+            flag_url (str | None): A URL to the country's flag image.
+            timezones (list[str]): A list of timezones for the country.
 
         Returns:
-            JSON response indicating the success of the song addition.
+            JSON response indicating the success of the country addition.
 
         Raises:
             400 error if input validation fails.
-            500 error if there is an issue adding the song to the playlist.
+            500 error if there is an issue adding the country to the favorites.
 
         """
-        app.logger.info("Received request to add a new song")
+        app.logger.info("Received request to add a new country")
 
         try:
             data = request.get_json()
 
-            required_fields = ["artist", "title", "year", "genre", "duration"]
+            required_fields = ["name", "capital", "region", "population", "languages", "currencies", "borders", "flag_url", "timezones"]
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
@@ -328,952 +332,657 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": f"Missing required fields: {', '.join(missing_fields)}"
                 }), 400)
 
-            artist = data["artist"]
-            title = data["title"]
-            year = data["year"]
-            genre = data["genre"]
-            duration = data["duration"]
+            name = data["name"]
+            capital = data["title"]
+            region = data["year"]
+            population = data["genre"]
+            languages = data["duration"]
+            currencies = data["currencies"]
+            borders = data["borders"]
+            flag_url = data["flag_url"]
+            timezones = data["timezones"]
 
             if (
-                not isinstance(artist, str)
-                or not isinstance(title, str)
-                or not isinstance(year, int)
-                or not isinstance(genre, str)
-                or not isinstance(duration, int)
+                not isinstance(name, str)
+                or not isinstance(capital, str)
+                or not isinstance(region, str)
+                or not isinstance(population, int)
+                or not isinstance(languages, list[str])
+                or not isinstance(currencies, list[str])
+                or not isinstance(borders, list[str])
+                or not isinstance(flag_url, str)
+                or not isinstance(timezones, list[str])
             ):
                 app.logger.warning("Invalid input data types")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": "Invalid input types: artist/title/genre should be strings, year and duration should be integers"
+                    "message": "Invalid input types: name/capital/region/flag_url should be strings, population should be an integer, languages/currencies/borders/timezones should be lists of strings."
                 }), 400)
 
-            app.logger.info(f"Adding song: {artist} - {title} ({year}), Genre: {genre}, Duration: {duration}s")
-            Songs.create_song(artist=artist, title=title, year=year, genre=genre, duration=duration)
+            app.logger.info(f"Adding country: {name}")
+            CountryData.create_country(name=name, capital=capital, region=region, population=population,
+                                       languages=languages, currencies=currencies, borders=borders,
+                                       flag_url=flag_url, timezones=timezones)
 
-            app.logger.info(f"Song added successfully: {artist} - {title}")
+            app.logger.info(f"Country added successfully: {name}")
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song '{title}' by {artist} added successfully"
+                "message": f"Country '{name} added successfully"
             }), 201)
 
         except Exception as e:
-            app.logger.error(f"Failed to add song: {e}")
+            app.logger.error(f"Failed to add country: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while adding the song",
+                "message": "An internal error occurred while adding the country",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/delete-song/<int:song_id>', methods=['DELETE'])
+    @app.route('/api/delete-country/<int:name>', methods=['DELETE'])
     @login_required
-    def delete_song(song_id: int) -> Response:
-        """Route to delete a song by ID.
+    def delete_country(name: str) -> Response:
+        """Route to delete a country by name.
 
         Path Parameter:
-            - song_id (int): The ID of the song to delete.
+            - name (str): The name of the country to delete.
 
         Returns:
             JSON response indicating success of the operation.
 
         Raises:
-            400 error if the song does not exist.
-            500 error if there is an issue removing the song from the database.
+            400 error if the country does not exist.
+            500 error if there is an issue removing the country from the database.
 
         """
         try:
-            app.logger.info(f"Received request to delete song with ID {song_id}")
+            app.logger.info(f"Received request to delete country with name {name}")
 
-            # Check if the song exists before attempting to delete
-            song = Songs.get_song_by_id(song_id)
-            if not song:
-                app.logger.warning(f"Song with ID {song_id} not found.")
+            # Check if the country exists before attempting to delete
+            country = CountryData.get_country_by_name(name)
+            if not country:
+                app.logger.warning(f"Country with name {name} not found.")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": f"Song with ID {song_id} not found"
+                    "message": f"Country with name {name} not found"
                 }), 400)
 
-            Songs.delete_song(song_id)
-            app.logger.info(f"Successfully deleted song with ID {song_id}")
+            CountryData.delete_country(name)
+            app.logger.info(f"Successfully deleted country with name {name}")
 
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song with ID {song_id} deleted successfully"
+                "message": f"Country with name {name} deleted successfully"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to delete song: {e}")
+            app.logger.error(f"Failed to delete country: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while deleting the song",
+                "message": "An internal error occurred while deleting the country",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/get-all-songs-from-catalog', methods=['GET'])
+    @app.route('/api/get-all-countries-from-database', methods=['GET'])
     @login_required
-    def get_all_songs() -> Response:
-        """Route to retrieve all songs in the catalog (non-deleted), with an option to sort by play count.
+    def get_all_countries() -> Response:
+        """Route to retrieve all countries in the database (non-deleted), with an option to sort by play count.
 
         Query Parameter:
-            - sort_by_play_count (bool, optional): If true, sort songs by play count.
+            - sort_by_play_count (bool, optional): If true, sort countries by play count.
 
         Returns:
-            JSON response containing the list of songs.
+            JSON response containing the list of countries.
 
         Raises:
-            500 error if there is an issue retrieving songs from the catalog.
+            500 error if there is an issue retrieving countries from the database.
 
         """
         try:
-            # Extract query parameter for sorting by play count
-            sort_by_play_count = request.args.get('sort_by_play_count', 'false').lower() == 'true'
 
-            app.logger.info(f"Received request to retrieve all songs from catalog (sort_by_play_count={sort_by_play_count})")
+            app.logger.info(f"Received request to retrieve all countries from database")
 
-            songs = Songs.get_all_songs(sort_by_play_count=sort_by_play_count)
+            countries = CountryData.get_all_countries()
 
-            app.logger.info(f"Successfully retrieved {len(songs)} songs from the catalog")
+            app.logger.info(f"Successfully retrieved {len(countries)} countries from the database")
 
             return make_response(jsonify({
                 "status": "success",
-                "message": "Songs retrieved successfully",
-                "songs": songs
+                "message": "CountryData retrieved successfully",
+                "countries": countries
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to retrieve songs: {e}")
+            app.logger.error(f"Failed to retrieve countries: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while retrieving songs",
+                "message": "An internal error occurred while retrieving countries",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/get-song-from-catalog-by-id/<int:song_id>', methods=['GET'])
+    @app.route('/api/get-country-from-database-by-name/<string:name>', methods=['GET'])
     @login_required
-    def get_song_by_id(song_id: int) -> Response:
-        """Route to retrieve a song by its ID.
+    def get_country_by_name(name: str) -> Response:
+        """Route to retrieve a country by its name.
 
         Path Parameter:
-            - song_id (int): The ID of the song.
+            - name (str): The name of the country.
 
         Returns:
-            JSON response containing the song details.
+            JSON response containing the country details.
 
         Raises:
-            400 error if the song does not exist.
-            500 error if there is an issue retrieving the song.
+            400 error if the country does not exist.
+            500 error if there is an issue retrieving the country.
 
         """
         try:
-            app.logger.info(f"Received request to retrieve song with ID {song_id}")
+            app.logger.info(f"Received request to retrieve country with name {name}")
 
-            song = Songs.get_song_by_id(song_id)
-            if not song:
-                app.logger.warning(f"Song with ID {song_id} not found.")
+            country = CountryData.get_country_by_name(name)
+            if not country:
+                app.logger.warning(f"Country with name {name} not found.")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": f"Song with ID {song_id} not found"
+                    "message": f"Country with name {name} not found"
                 }), 400)
 
-            app.logger.info(f"Successfully retrieved song: {song.title} by {song.artist} (ID {song_id})")
+            app.logger.info(f"Successfully retrieved country: {country.name}")
 
             return make_response(jsonify({
                 "status": "success",
-                "message": "Song retrieved successfully",
-                "song": song
+                "message": "Country retrieved successfully",
+                "country": country.name
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to retrieve song by ID: {e}")
+            app.logger.error(f"Failed to retrieve country by name: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while retrieving the song",
+                "message": "An internal error occurred while retrieving the country",
                 "details": str(e)
             }), 500)
-
-
-    @app.route('/api/get-song-from-catalog-by-compound-key', methods=['GET'])
-    @login_required
-    def get_song_by_compound_key() -> Response:
-        """Route to retrieve a song by its compound key (artist, title, year).
-
-        Query Parameters:
-            - artist (str): The artist's name.
-            - title (str): The song title.
-            - year (int): The year the song was released.
-
-        Returns:
-            JSON response containing the song details.
-
-        Raises:
-            400 error if required query parameters are missing or invalid.
-            500 error if there is an issue retrieving the song.
-
-        """
-        try:
-            artist = request.args.get('artist')
-            title = request.args.get('title')
-            year = request.args.get('year')
-
-            if not artist or not title or not year:
-                app.logger.warning("Missing required query parameters: artist, title, year")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "Missing required query parameters: artist, title, year"
-                }), 400)
-
-            try:
-                year = int(year)
-            except ValueError:
-                app.logger.warning(f"Invalid year format: {year}. Year must be an integer.")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "Year must be an integer"
-                }), 400)
-
-            app.logger.info(f"Received request to retrieve song by compound key: {artist}, {title}, {year}")
-
-            song = Songs.get_song_by_compound_key(artist, title, year)
-            if not song:
-                app.logger.warning(f"Song not found: {artist} - {title} ({year})")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": f"Song not found: {artist} - {title} ({year})"
-                }), 400)
-
-            app.logger.info(f"Successfully retrieved song: {song.title} by {song.artist} ({year})")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": "Song retrieved successfully",
-                "song": song
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to retrieve song by compound key: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while retrieving the song",
-                "details": str(e)
-            }), 500)
-
-
-    @app.route('/api/get-random-song', methods=['GET'])
-    @login_required
-    def get_random_song() -> Response:
-        """Route to retrieve a random song from the catalog.
-
-        Returns:
-            JSON response containing the details of a random song.
-
-        Raises:
-            400 error if no songs exist in the catalog.
-            500 error if there is an issue retrieving the song
-
-        """
-        try:
-            app.logger.info("Received request to retrieve a random song from the catalog")
-
-            song = Songs.get_random_song()
-            if not song:
-                app.logger.warning("No songs found in the catalog.")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "No songs available in the catalog"
-                }), 400)
-
-            app.logger.info(f"Successfully retrieved random song: {song.title} by {song.artist}")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": "Random song retrieved successfully",
-                "song": song
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to retrieve random song: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while retrieving a random song",
-                "details": str(e)
-            }), 500)
-
 
     ############################################################
     #
-    # Playlist Add / Remove
+    # Favorites Add / Remove
     #
     ############################################################
 
 
-    @app.route('/api/add-song-to-playlist', methods=['POST'])
+    @app.route('/api/add-country-to-favorites', methods=['POST'])
     @login_required
-    def add_song_to_playlist() -> Response:
-        """Route to add a song to the playlist by compound key (artist, title, year).
+    def add_country_to_favorites() -> Response:
+        """Route to add a country to the favorites by name.
 
         Expected JSON Input:
-            - artist (str): The artist's name.
-            - title (str): The song title.
-            - year (int): The year the song was released.
+            - name (str): The name of the country.
 
         Returns:
             JSON response indicating success of the addition.
 
         Raises:
-            400 error if required fields are missing or the song does not exist.
-            500 error if there is an issue adding the song to the playlist.
+            400 error if required fields are missing or the country does not exist.
+            500 error if there is an issue adding the country to the favorites.
 
         """
         try:
-            app.logger.info("Received request to add song to playlist")
+            app.logger.info("Received request to add country to favorites")
 
             data = request.get_json()
-            required_fields = ["artist", "title", "year"]
+            required_fields = ["name"]
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
-                app.logger.warning(f"Missing required fields: {missing_fields}")
+                app.logger.warning(f"Missing required field: {missing_fields}")
                 return make_response(jsonify({
                     "status": "error",
                     "message": f"Missing required fields: {', '.join(missing_fields)}"
                 }), 400)
 
-            artist = data["artist"]
-            title = data["title"]
+            name = data["name"]
 
-            try:
-                year = int(data["year"])
-            except ValueError:
-                app.logger.warning(f"Invalid year format: {data['year']}")
+
+            app.logger.info(f"Looking up country: {name}")
+            country = CountryData.get_country_by_name(name)
+
+            if not country:
+                app.logger.warning(f"Country not found: {name}")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": "Year must be a valid integer"
+                    "message": f"Country '{name}' not found in database"
                 }), 400)
 
-            app.logger.info(f"Looking up song: {artist} - {title} ({year})")
-            song = Songs.get_song_by_compound_key(artist, title, year)
-
-            if not song:
-                app.logger.warning(f"Song not found: {artist} - {title} ({year})")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": f"Song '{title}' by {artist} ({year}) not found in catalog"
-                }), 400)
-
-            playlist_model.add_song_to_playlist(song)
-            app.logger.info(f"Successfully added song to playlist: {artist} - {title} ({year})")
+            favorites_model.add_country_to_favorites(country)
+            app.logger.info(f"Successfully added country to favorites: {name}")
 
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song '{title}' by {artist} ({year}) added to playlist"
+                "message": f"Country '{name}' added to favorites"
             }), 201)
 
         except Exception as e:
-            app.logger.error(f"Failed to add song to playlist: {e}")
+            app.logger.error(f"Failed to add country to favorites: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while adding the song to the playlist",
+                "message": "An internal error occurred while adding the country to the favorites",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/remove-song-from-playlist', methods=['DELETE'])
+    @app.route('/api/remove-country-from-favorites', methods=['DELETE'])
     @login_required
-    def remove_song_by_song_id() -> Response:
-        """Route to remove a song from the playlist by compound key (artist, title, year).
+    def remove_country_by_name() -> Response:
+        """Route to remove a country from the favorites by name.
 
         Expected JSON Input:
-            - artist (str): The artist's name.
-            - title (str): The song title.
-            - year (int): The year the song was released.
+            - name (str): The name of the country.
 
         Returns:
             JSON response indicating success of the removal.
 
         Raises:
-            400 error if required fields are missing or the song does not exist in the playlist.
-            500 error if there is an issue removing the song.
+            400 error if required fields are missing or the country does not exist in the favorites.
+            500 error if there is an issue removing the country.
 
         """
         try:
-            app.logger.info("Received request to remove song from playlist")
+            app.logger.info("Received request to remove country from favorites")
 
             data = request.get_json()
-            required_fields = ["artist", "title", "year"]
+            required_fields = ["name"]
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
-                app.logger.warning(f"Missing required fields: {missing_fields}")
+                app.logger.warning(f"Missing required field: {missing_fields}")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": f"Missing required fields: {', '.join(missing_fields)}"
+                    "message": f"Missing required field: {', '.join(missing_fields)}"
                 }), 400)
 
-            artist = data["artist"]
-            title = data["title"]
+            name = data["name"]
 
-            try:
-                year = int(data["year"])
-            except ValueError:
-                app.logger.warning(f"Invalid year format: {data['year']}")
+            app.logger.info(f"Looking up country to remove: {name}")
+            country = CountryData.get_country_by_name(name)
+
+            if not country:
+                app.logger.warning(f"Country not found in database: {name}")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": "Year must be a valid integer"
+                    "message": f"Country '{name}' not found in database"
                 }), 400)
 
-            app.logger.info(f"Looking up song to remove: {artist} - {title} ({year})")
-            song = Songs.get_song_by_compound_key(artist, title, year)
-
-            if not song:
-                app.logger.warning(f"Song not found in catalog: {artist} - {title} ({year})")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": f"Song '{title}' by {artist} ({year}) not found in catalog"
-                }), 400)
-
-            playlist_model.remove_song_by_song_id(song.id)
-            app.logger.info(f"Successfully removed song from playlist: {artist} - {title} ({year})")
+            favorites_model.remove_country_by_name(country.id)
+            app.logger.info(f"Successfully removed country from favorites: {name}")
 
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song '{title}' by {artist} ({year}) removed from playlist"
+                "message": f"Country '{name}' removed from favorites"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to remove song from playlist: {e}")
+            app.logger.error(f"Failed to remove country from favorites: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while removing the song from the playlist",
+                "message": "An internal error occurred while removing the country from the favorites",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/remove-song-from-playlist-by-track-number/<int:track_number>', methods=['DELETE'])
+    @app.route('/api/remove-country-from-favorites-by-country-list-number/<int:country_list_number>', methods=['DELETE'])
     @login_required
-    def remove_song_by_track_number(track_number: int) -> Response:
-        """Route to remove a song from the playlist by track number.
+    def remove_country_by_country_list_number(country_list_number: int) -> Response:
+        """Route to remove a country from the favorites by country list number.
 
         Path Parameter:
-            - track_number (int): The track number of the song to remove.
+            - country_list_number (int): The country list number of the country to remove.
 
         Returns:
             JSON response indicating success of the removal.
 
         Raises:
-            404 error if the track number does not exist.
-            500 error if there is an issue removing the song.
+            404 error if the country list number does not exist.
+            500 error if there is an issue removing the country.
 
         """
         try:
-            app.logger.info(f"Received request to remove song at track number {track_number} from playlist")
+            app.logger.info(f"Received request to remove country at country list number {country_list_number} from favorites")
 
-            playlist_model.remove_song_by_track_number(track_number)
+            favorites_model.remove_country_by_country_list_number(country_list_number)
 
-            app.logger.info(f"Successfully removed song at track number {track_number} from playlist")
+            app.logger.info(f"Successfully removed country at country list number {country_list_number} from favorites")
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song at track number {track_number} removed from playlist"
+                "message": f"Country at country list number {country_list_number} removed from favorites"
             }), 200)
 
         except ValueError as e:
-            app.logger.warning(f"Track number {track_number} not found in playlist: {e}")
+            app.logger.warning(f"Country list number {country_list_number} not found in favorites: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": f"Track number {track_number} not found in playlist"
+                "message": f"Country list number {country_list_number} not found in favorites"
             }), 404)
 
         except Exception as e:
-            app.logger.error(f"Failed to remove song at track number {track_number}: {e}")
+            app.logger.error(f"Failed to remove country at country list number {country_list_number}: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while removing the song from the playlist",
+                "message": "An internal error occurred while removing the country from the favorites",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/clear-playlist', methods=['POST'])
+    @app.route('/api/clear-favorites', methods=['POST'])
     @login_required
-    def clear_playlist() -> Response:
-        """Route to clear all songs from the playlist.
+    def clear_favorites() -> Response:
+        """Route to clear all countries from the favorites.
 
         Returns:
             JSON response indicating success of the operation.
 
         Raises:
-            500 error if there is an issue clearing the playlist.
+            500 error if there is an issue clearing the favorites.
 
         """
         try:
-            app.logger.info("Received request to clear the playlist")
+            app.logger.info("Received request to clear the favorites")
 
-            playlist_model.clear_playlist()
+            favorites_model.clear_favorites()
 
-            app.logger.info("Successfully cleared the playlist")
+            app.logger.info("Successfully cleared the favorites")
             return make_response(jsonify({
                 "status": "success",
-                "message": "Playlist cleared"
+                "message": "Favorites cleared"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to clear playlist: {e}")
+            app.logger.error(f"Failed to clear favorites: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while clearing the playlist",
+                "message": "An internal error occurred while clearing the favorites",
                 "details": str(e)
             }), 500)
 
 
-    ############################################################
-    #
-    # Play Playlist
-    #
-    ############################################################
-
-
-    @app.route('/api/play-current-song', methods=['POST'])
+    @app.route('/api/go-to-country-list-number/<int:country_list_number>', methods=['POST'])
     @login_required
-    def play_current_song() -> Response:
-        """Route to play the current song in the playlist.
-
-        Returns:
-            JSON response indicating success of the operation.
-
-        Raises:
-            404 error if there is no current song.
-            500 error if there is an issue playing the current song.
-
-        """
-        try:
-            app.logger.info("Received request to play the current song")
-
-            current_song = playlist_model.get_current_song()
-            if not current_song:
-                app.logger.warning("No current song found in the playlist")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "No current song found in the playlist"
-                }), 404)
-
-            playlist_model.play_current_song()
-            app.logger.info(f"Now playing: {current_song.artist} - {current_song.title} ({current_song.year})")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": "Now playing current song",
-                "song": {
-                    "id": current_song.id,
-                    "artist": current_song.artist,
-                    "title": current_song.title,
-                    "year": current_song.year,
-                    "genre": current_song.genre,
-                    "duration": current_song.duration
-                }
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to play current song: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while playing the current song",
-                "details": str(e)
-            }), 500)
-
-
-    @app.route('/api/play-entire-playlist', methods=['POST'])
-    @login_required
-    def play_entire_playlist() -> Response:
-        """Route to play all songs in the playlist.
-
-        Returns:
-            JSON response indicating success of the operation.
-
-        Raises:
-            400 error if the playlist is empty.
-            500 error if there is an issue playing the playlist.
-
-        """
-        try:
-            app.logger.info("Received request to play the entire playlist")
-
-            if playlist_model.check_if_empty():
-                app.logger.warning("Cannot play playlist: No songs available")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "Cannot play playlist: No songs available"
-                }), 400)
-
-            playlist_model.play_entire_playlist()
-            app.logger.info("Playing entire playlist")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": "Playing entire playlist"
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to play entire playlist: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while playing the playlist",
-                "details": str(e)
-            }), 500)
-
-
-    @app.route('/api/play-rest-of-playlist', methods=['POST'])
-    @login_required
-    def play_rest_of_playlist() -> Response:
-        """Route to play the rest of the playlist from the current track.
-
-        Returns:
-            JSON response indicating success of the operation.
-
-        Raises:
-            400 error if the playlist is empty or if no current song is playing.
-            500 error if there is an issue playing the rest of the playlist.
-
-        """
-        try:
-            app.logger.info("Received request to play the rest of the playlist")
-
-            if playlist_model.check_if_empty():
-                app.logger.warning("Cannot play rest of playlist: No songs available")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "Cannot play rest of playlist: No songs available"
-                }), 400)
-
-            if not playlist_model.get_current_song():
-                app.logger.warning("No current song playing. Cannot continue playlist.")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "No current song playing. Cannot continue playlist."
-                }), 400)
-
-            playlist_model.play_rest_of_playlist()
-            app.logger.info("Playing rest of the playlist")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": "Playing rest of the playlist"
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to play rest of the playlist: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while playing the rest of the playlist",
-                "details": str(e)
-            }), 500)
-
-
-    @app.route('/api/rewind-playlist', methods=['POST'])
-    @login_required
-    def rewind_playlist() -> Response:
-        """Route to rewind the playlist to the first song.
-
-        Returns:
-            JSON response indicating success of the operation.
-
-        Raises:
-            400 error if the playlist is empty.
-            500 error if there is an issue rewinding the playlist.
-
-        """
-        try:
-            app.logger.info("Received request to rewind the playlist")
-
-            if playlist_model.check_if_empty():
-                app.logger.warning("Cannot rewind: No songs in playlist")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "Cannot rewind: No songs in playlist"
-                }), 400)
-
-            playlist_model.rewind_playlist()
-            app.logger.info("Playlist successfully rewound to the first song")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": "Playlist rewound to the first song"
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to rewind playlist: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while rewinding the playlist",
-                "details": str(e)
-            }), 500)
-
-
-    @app.route('/api/go-to-track-number/<int:track_number>', methods=['POST'])
-    @login_required
-    def go_to_track_number(track_number: int) -> Response:
-        """Route to set the playlist to start playing from a specific track number.
+    def go_to_country_list_number(country_list_number: int) -> Response:
+        """Route to go the favorites list number.
 
         Path Parameter:
-            - track_number (int): The track number to set as the current song.
+            - country_list_number (int): The country list number to set as the favorite country.
 
         Returns:
             JSON response indicating success or an error message.
 
         Raises:
-            400 error if the track number is invalid.
-            500 error if there is an issue updating the track number.
+            400 error if the country list number is invalid.
+            500 error if there is an issue updating the country list number.
         """
         try:
-            app.logger.info(f"Received request to go to track number {track_number}")
+            app.logger.info(f"Received request to go to country list number {country_list_number}")
 
-            if not playlist_model.is_valid_track_number(track_number):
-                app.logger.warning(f"Invalid track number: {track_number}")
+            if not favorites_model.is_valid_country_list_number(country_list_number):
+                app.logger.warning(f"Invalid country list number: {country_list_number}")
                 return make_response(jsonify({
                     "status": "error",
-                    "message": f"Invalid track number: {track_number}. Please provide a valid track number."
+                    "message": f"Invalid country list number: {country_list_number}. Please provide a valid country list number."
                 }), 400)
 
-            playlist_model.go_to_track_number(track_number)
-            app.logger.info(f"Playlist set to track number {track_number}")
+            favorites_model.go_to_country_list_number(country_list_number)
+            app.logger.info(f"Favorites set to country list number {country_list_number}")
 
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Now playing from track number {track_number}"
+                "message": f"Now playing from country list number {country_list_number}"
             }), 200)
 
         except ValueError as e:
-            app.logger.warning(f"Failed to set track number {track_number}: {e}")
+            app.logger.warning(f"Failed to set country list number {country_list_number}: {e}")
             return make_response(jsonify({
                 "status": "error",
                 "message": str(e)
             }), 400)
 
         except Exception as e:
-            app.logger.error(f"Internal error while going to track number {track_number}: {e}")
+            app.logger.error(f"Internal error while going to country list number {country_list_number}: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while changing the track number",
+                "message": "An internal error occurred while changing the country list number",
                 "details": str(e)
             }), 500)
 
-
-    @app.route('/api/go-to-random-track', methods=['POST'])
-    @login_required
-    def go_to_random_track() -> Response:
-        """Route to set the playlist to start playing from a random track number.
-
-        Returns:
-            JSON response indicating success or an error message.
-
-        Raises:
-            400 error if the playlist is empty.
-            500 error if there is an issue selecting a random track.
-
-        """
-        try:
-            app.logger.info("Received request to go to a random track")
-
-            if playlist_model.get_playlist_length() == 0:
-                app.logger.warning("Attempted to go to a random track but the playlist is empty")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": "Cannot select a random track. The playlist is empty."
-                }), 400)
-
-            playlist_model.go_to_random_track()
-            app.logger.info(f"Playlist set to random track number {playlist_model.current_track_number}")
-
-            return make_response(jsonify({
-                "status": "success",
-                "message": f"Now playing from random track number {playlist_model.current_track_number}"
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Internal error while selecting a random track: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while selecting a random track",
-                "details": str(e)
-            }), 500)
 
 
     ############################################################
     #
-    # View Playlist
+    # View Favorites
     #
     ############################################################
 
 
-    @app.route('/api/get-all-songs-from-playlist', methods=['GET'])
+    @app.route('/api/get-all-countries-from-favorites', methods=['GET'])
     @login_required
-    def get_all_songs_from_playlist() -> Response:
-        """Retrieve all songs in the playlist.
+    def get_all_countries_from_favorites() -> Response:
+        """Retrieve all countries in the favorites.
 
         Returns:
-            JSON response containing the list of songs.
+            JSON response containing the list of countries.
 
         Raises:
-            500 error if there is an issue retrieving the playlist.
+            500 error if there is an issue retrieving the favorites.
 
         """
         try:
-            app.logger.info("Received request to retrieve all songs from the playlist.")
+            app.logger.info("Received request to retrieve all countries from the favorites.")
 
-            songs = playlist_model.get_all_songs()
+            countries = favorites_model.get_all_countries()
 
-            app.logger.info(f"Successfully retrieved {len(songs)} songs from the playlist.")
+            app.logger.info(f"Successfully retrieved {len(countries)} countries from the favorites.")
             return make_response(jsonify({
                 "status": "success",
-                "songs": songs
+                "countries": countries
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to retrieve songs from playlist: {e}")
+            app.logger.error(f"Failed to retrieve countries from favorites: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while retrieving the playlist",
+                "message": "An internal error occurred while retrieving the favorites",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/get-song-from-playlist-by-track-number/<int:track_number>', methods=['GET'])
+    
+
+    @app.route('/api/get-country-from-favorites-by-country-list-number/<int:country_list_number>', methods=['GET'])
     @login_required
-    def get_song_by_track_number(track_number: int) -> Response:
-        """Retrieve a song from the playlist by track number.
+    def get_country_by_country_list_number(country_list_number: int) -> Response:
+        """Retrieve a country from the favorites by country list number.
 
         Path Parameter:
-            - track_number (int): The track number of the song.
+            - country_list_number (int): The country list number of the country.
 
         Returns:
-            JSON response containing song details.
+            JSON response containing country details.
 
         Raises:
-            404 error if the track number is not found.
-            500 error if there is an issue retrieving the song.
+            404 error if the country list number is not found.
+            500 error if there is an issue retrieving the country.
 
         """
         try:
-            app.logger.info(f"Received request to retrieve song at track number {track_number}.")
+            app.logger.info(f"Received request to retrieve country at country list number {country_list_number}.")
 
-            song = playlist_model.get_song_by_track_number(track_number)
+            country = favorites_model.get_country_by_country_list_number(country_list_number)
 
-            app.logger.info(f"Successfully retrieved song: {song.artist} - {song.title} (Track {track_number}).")
+            app.logger.info(f"Successfully retrieved country: {country.name}")
             return make_response(jsonify({
                 "status": "success",
-                "song": song
+                "country": country
             }), 200)
 
         except ValueError as e:
-            app.logger.warning(f"Track number {track_number} not found: {e}")
+            app.logger.warning(f"Country list number {country_list_number} not found: {e}")
             return make_response(jsonify({
                 "status": "error",
                 "message": str(e)
             }), 404)
 
         except Exception as e:
-            app.logger.error(f"Failed to retrieve song by track number {track_number}: {e}")
+            app.logger.error(f"Failed to retrieve country by country list number {country_list_number}: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while retrieving the song",
+                "message": "An internal error occurred while retrieving the country",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/get-current-song', methods=['GET'])
+    @app.route('/api/get-favorite-country', methods=['GET'])
     @login_required
-    def get_current_song() -> Response:
-        """Retrieve the current song being played.
+    def get_favorite_country() -> Response:
+        """Retrieve the favorite country being played.
 
         Returns:
-            JSON response containing current song details.
+            JSON response containing favorite country details.
 
         Raises:
-            500 error if there is an issue retrieving the current song.
+            500 error if there is an issue retrieving the favorite country.
 
         """
         try:
-            app.logger.info("Received request to retrieve the current song.")
+            app.logger.info("Received request to retrieve the favorite country.")
 
-            current_song = playlist_model.get_current_song()
+            favorite_country = favorites_model.get_favorite_country()
 
-            app.logger.info(f"Successfully retrieved current song: {current_song.artist} - {current_song.title}.")
+            app.logger.info(f"Successfully retrieved favorite country: {favorite_country.name}.")
             return make_response(jsonify({
                 "status": "success",
-                "current_song": current_song
+                "favorite_country": favorite_country
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to retrieve current song: {e}")
+            app.logger.error(f"Failed to retrieve favorite country: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while retrieving the current song",
+                "message": "An internal error occurred while retrieving the favorite country",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/get-playlist-length-duration', methods=['GET'])
+    @app.route('/api/get-favorites-length-population', methods=['GET'])
     @login_required
-    def get_playlist_length_and_duration() -> Response:
-        """Retrieve the length (number of songs) and total duration of the playlist.
+    def get_favorites_length_and_population() -> Response:
+        """Retrieve the length (number of countries) and population (total of people from all the countries) in favorites.
 
         Returns:
-            JSON response containing the playlist length and total duration.
+            JSON response containing the favorites length and population.
 
         Raises:
-            500 error if there is an issue retrieving playlist information.
+            500 error if there is an issue retrieving favorites information.
 
         """
         try:
-            app.logger.info("Received request to retrieve playlist length and duration.")
+            app.logger.info("Received request to retrieve favorites length and population.")
 
-            playlist_length = playlist_model.get_playlist_length()
-            playlist_duration = playlist_model.get_playlist_duration()
+            favorites_length = favorites_model.get_favorites_length()
+            favorites_population = favorites_model.get_favorites_population()
 
-            app.logger.info(f"Playlist contains {playlist_length} songs with a total duration of {playlist_duration} seconds.")
+            app.logger.info(f"Favorites contains {favorites_length} countries with a total population of {favorites_population} people.")
             return make_response(jsonify({
                 "status": "success",
-                "playlist_length": playlist_length,
-                "playlist_duration": playlist_duration
+                "favorites_length": favorites_length,
+                "favorites_population": favorites_population
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to retrieve playlist length and duration: {e}")
+            app.logger.error(f"Failed to retrieve favorites length and population: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while retrieving playlist details",
+                "message": "An internal error occurred while retrieving favorites length and population details",
+                "details": str(e)
+            }), 500)
+            
+    @app.route('/api/compare-two-favorites', methods=['GET'])
+    @login_required
+    def compare_two_favorites() -> Response:
+        """Compare two favorites and return the differences.
+
+        Returns:
+            JSON response containing the differences between the two favorites.
+
+        Raises:
+            500 error if there is an issue comparing the favorites.
+
+        """
+        try:
+            app.logger.info("Received request to compare two favorites.")
+
+            data = request.get_json()
+            country1_name = data.get("country1_name")
+            country2_name = data.get("country2_name")
+            
+            # Check for missing fields
+            if not country1_name or not country2_name:
+                return make_response(jsonify({
+                    "status": "error",
+                    "message": "Both 'country1_name' and 'country2_name' are required"
+                }), 400)
+
+            # Call your FavoritesModel compare_two_favorites method:
+            comparison_result = favorites_model.compare_two_favorites(country1_name, country2_name)
+
+            app.logger.info(f"Successfully compared {country1_name} and {country2_name}")
+            return make_response(jsonify({
+                "status": "success",
+                "message": f"Comparison between '{country1_name}' and '{country2_name}' completed",
+                "comparison": comparison_result
+            }), 200)
+
+        except ValueError as e:
+            return make_response(jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 400)
+
+        except Exception as e:
+            app.logger.error(f"Failed to compare favorite countries: {e}")
+            return make_response(jsonify({
+                "status": "error",
+                "message": "An internal error occurred while comparing countries",
                 "details": str(e)
             }), 500)
 
 
     ############################################################
     #
-    # Arrange Playlist
+    # Arrange Favorites
     #
     ############################################################
 
 
-    @app.route('/api/move-song-to-beginning', methods=['POST'])
+    @app.route('/api/move-country-to-top', methods=['POST'])
     @login_required
-    def move_song_to_beginning() -> Response:
-        """Move a song to the beginning of the playlist.
+    def move_country_to_top() -> Response:
+        """Move a country to the top of the favorites.
 
         Expected JSON Input:
-            - artist (str): The artist of the song.
-            - title (str): The title of the song.
-            - year (int): The year the song was released.
+            name (str): The name of the country to move.
 
         Returns:
             Response: JSON response indicating success or an error message.
 
         Raises:
             400 error if required fields are missing.
-            500 error if an error occurs while updating the playlist.
+            500 error if an error occurs while updating the favorites.
 
         """
         try:
             data = request.get_json()
 
-            required_fields = ["artist", "title", "year"]
+            required_fields = ["name"]
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
@@ -1283,49 +992,49 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": f"Missing required fields: {', '.join(missing_fields)}"
                 }), 400)
 
-            artist, title, year = data["artist"], data["title"], data["year"]
-            app.logger.info(f"Received request to move song to beginning: {artist} - {title} ({year})")
+            name = data["name"]
+            app.logger.info(f"Received request to move country to top: {name}")
 
-            song = Songs.get_song_by_compound_key(artist, title, year)
-            playlist_model.move_song_to_beginning(song.id)
+            country = CountryData.get_country_by_name(name)
+            favorites_model.move_country_to_top(country.id)
 
-            app.logger.info(f"Successfully moved song to beginning: {artist} - {title} ({year})")
+            app.logger.info(f"Successfully moved country to top: {name}")
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song '{title}' by {artist} moved to beginning"
+                "message": f"Country '{name}' moved to top"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to move song to beginning: {e}")
+            app.logger.error(f"Failed to move country to top: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while moving the song",
+                "message": "An internal error occurred while moving the country",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/move-song-to-end', methods=['POST'])
+    @app.route('/api/move-country-to-end', methods=['POST'])
     @login_required
-    def move_song_to_end() -> Response:
-        """Move a song to the end of the playlist.
+    def move_country_to_end() -> Response:
+        """Move a country to the end of the favorites.
 
         Expected JSON Input:
-            - artist (str): The artist of the song.
-            - title (str): The title of the song.
-            - year (int): The year the song was released.
+            - artist (str): The artist of the country.
+            - title (str): The title of the country.
+            - year (int): The year the country was released.
 
         Returns:
             Response: JSON response indicating success or an error message.
 
         Raises:
             400 error if required fields are missing.
-            500 if an error occurs while updating the playlist.
+            500 if an error occurs while updating the favorites.
 
         """
         try:
             data = request.get_json()
 
-            required_fields = ["artist", "title", "year"]
+            required_fields = ["name"]
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
@@ -1335,49 +1044,47 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": f"Missing required fields: {', '.join(missing_fields)}"
                 }), 400)
 
-            artist, title, year = data["artist"], data["title"], data["year"]
-            app.logger.info(f"Received request to move song to end: {artist} - {title} ({year})")
+            name = data["name"]
+            app.logger.info(f"Received request to move country to end: {name}")
 
-            song = Songs.get_song_by_compound_key(artist, title, year)
-            playlist_model.move_song_to_end(song.id)
+            country = CountryData.get_country_by_name(name)
+            favorites_model.move_country_to_end(country.id)
 
-            app.logger.info(f"Successfully moved song to end: {artist} - {title} ({year})")
+            app.logger.info(f"Successfully moved country to end: {name}")
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song '{title}' by {artist} moved to end"
+                "message": f"Country '{name}' moved to end"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to move song to end: {e}")
+            app.logger.error(f"Failed to move country to end: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while moving the song",
+                "message": "An internal error occurred while moving the country",
                 "details": str(e)
             }), 500)
 
 
-    @app.route('/api/move-song-to-track-number', methods=['POST'])
+    @app.route('/api/move-country-to-country-list-number', methods=['POST'])
     @login_required
-    def move_song_to_track_number() -> Response:
-        """Move a song to a specific track number in the playlist.
+    def move_country_to_country_list_number() -> Response:
+        """Move a country to a specific country list number in the favorites.
 
         Expected JSON Input:
-            - artist (str): The artist of the song.
-            - title (str): The title of the song.
-            - year (int): The year the song was released.
-            - track_number (int): The new track number to move the song to.
+            name (str): The name of the country to move.
+            country_list_number (int): The country list number to move the country to (1-indexed).
 
         Returns:
             Response: JSON response indicating success or an error message.
 
         Raises:
             400 error if required fields are missing.
-            500 error if an error occurs while updating the playlist.
+            500 error if an error occurs while updating the favorites.
         """
         try:
             data = request.get_json()
 
-            required_fields = ["artist", "title", "year", "track_number"]
+            required_fields = ["name", "country_list_number"]
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
@@ -1387,76 +1094,26 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": f"Missing required fields: {', '.join(missing_fields)}"
                 }), 400)
 
-            artist, title, year, track_number = data["artist"], data["title"], data["year"], data["track_number"]
-            app.logger.info(f"Received request to move song to track number {track_number}: {artist} - {title} ({year})")
+            name, country_list_number = data["name"], data["country_list_number"]
+            app.logger.info(f"Received request to move country to country list number {country_list_number}: {name}")
 
-            song = Songs.get_song_by_compound_key(artist, title, year)
-            playlist_model.move_song_to_track_number(song.id, track_number)
+            country = CountryData.get_country_by_name(name)
+            favorites_model.move_country_to_country_list_number(country.id, country_list_number)
 
-            app.logger.info(f"Successfully moved song to track {track_number}: {artist} - {title} ({year})")
+            app.logger.info(f"Successfully moved country to country list number {country_list_number}: {name}")
             return make_response(jsonify({
                 "status": "success",
-                "message": f"Song '{title}' by {artist} moved to track {track_number}"
+                "message": f"Country '{name}' moved to country list number {country_list_number}"
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to move song to track number: {e}")
+            app.logger.error(f"Failed to move country to country list number: {e}")
             return make_response(jsonify({
                 "status": "error",
-                "message": "An internal error occurred while moving the song",
+                "message": "An internal error occurred while moving the country",
                 "details": str(e)
             }), 500)
 
-
-    @app.route('/api/swap-songs-in-playlist', methods=['POST'])
-    @login_required
-    def swap_songs_in_playlist() -> Response:
-        """Swap two songs in the playlist by their track numbers.
-
-        Expected JSON Input:
-            - track_number_1 (int): The track number of the first song.
-            - track_number_2 (int): The track number of the second song.
-
-        Returns:
-            Response: JSON response indicating success or an error message.
-
-        Raises:
-            400 error if required fields are missing.
-            500 error if an error occurs while swapping songs in the playlist.
-        """
-        try:
-            data = request.get_json()
-
-            required_fields = ["track_number_1", "track_number_2"]
-            missing_fields = [field for field in required_fields if field not in data]
-
-            if missing_fields:
-                app.logger.warning(f"Missing required fields: {missing_fields}")
-                return make_response(jsonify({
-                    "status": "error",
-                    "message": f"Missing required fields: {', '.join(missing_fields)}"
-                }), 400)
-
-            track_number_1, track_number_2 = data["track_number_1"], data["track_number_2"]
-            app.logger.info(f"Received request to swap songs at track numbers {track_number_1} and {track_number_2}")
-
-            song_1 = playlist_model.get_song_by_track_number(track_number_1)
-            song_2 = playlist_model.get_song_by_track_number(track_number_2)
-            playlist_model.swap_songs_in_playlist(song_1.id, song_2.id)
-
-            app.logger.info(f"Successfully swapped songs: {song_1.artist} - {song_1.title} <-> {song_2.artist} - {song_2.title}")
-            return make_response(jsonify({
-                "status": "success",
-                "message": f"Swapped songs: {song_1.artist} - {song_1.title} <-> {song_2.artist} - {song_2.title}"
-            }), 200)
-
-        except Exception as e:
-            app.logger.error(f"Failed to swap songs in playlist: {e}")
-            return make_response(jsonify({
-                "status": "error",
-                "message": "An internal error occurred while swapping songs",
-                "details": str(e)
-            }), 500)
 
 
 
@@ -1467,31 +1124,31 @@ def create_app(config_class=ProductionConfig) -> Flask:
     ############################################################
 
 
-    @app.route('/api/song-leaderboard', methods=['GET'])
-    def get_song_leaderboard() -> Response:
+    @app.route('/api/country-population-leaderboard', methods=['GET'])
+    def get_country_population_leaderboard() -> Response:
         """
-        Route to retrieve a leaderboard of songs sorted by play count.
+        Route to retrieve a leaderboard of countries sorted by play count.
 
         Returns:
-            JSON response with a sorted leaderboard of songs.
+            JSON response with a sorted leaderboard of countries.
 
         Raises:
             500 error if there is an issue generating the leaderboard.
 
         """
         try:
-            app.logger.info("Received request to generate song leaderboard")
+            app.logger.info("Received request to generate country leaderboard")
 
-            leaderboard_data = Songs.get_all_songs(sort_by_play_count=True)
+            leaderboard_data = CountryData.get_all_countries(sort_by_population=True)
 
-            app.logger.info(f"Successfully generated song leaderboard with {len(leaderboard_data)} entries")
+            app.logger.info(f"Successfully generated country population leaderboard with {len(leaderboard_data)} entries")
             return make_response(jsonify({
                 "status": "success",
                 "leaderboard": leaderboard_data
             }), 200)
 
         except Exception as e:
-            app.logger.error(f"Failed to generate song leaderboard: {e}")
+            app.logger.error(f"Failed to generate country population leaderboard: {e}")
             return make_response(jsonify({
                 "status": "error",
                 "message": "An internal error occurred while generating the leaderboard",

@@ -1,94 +1,157 @@
-from dataclasses import dataclass
+import hashlib
 import logging
 import os
-import sqlite3
-import bcrypt
 
+from flask_login import UserMixin
+from sqlalchemy.exc import IntegrityError
+
+from country.db import db
 from country.utils.logger import configure_logger
-from country.utils.sql_utils import get_db_connection
+
 
 logger = logging.getLogger(__name__)
 configure_logger(logger)
 
-@dataclass
-class User:
-    id: int
-    username: str
-    salt: str
-    hashed_password: str
 
-def create_user(username: str, password: str) -> None:
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO Users (username, salt, hashed_password)
-                VALUES (?, ?, ?)
-            """, (username, salt, hashed_password))
-            conn.commit()
-            logger.info("User created successfully: %s", username)
-    except sqlite3.IntegrityError:
-        logger.error("User with username '%s' already exists.", username)
-        raise ValueError(f"User '{username}' already exists.")
-    except sqlite3.Error as e:
-        logger.error("Database error: %s", str(e))
-        raise e
+class Users(db.Model, UserMixin):
+    __tablename__ = 'users'
 
-def login(username: str, password: str) -> bool:
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT salt, hashed_password FROM Users WHERE username = ?", (username,))
-            row = cursor.fetchone()
-            if row:
-                salt, hashed = row
-                if hashed == bcrypt.hashpw(password.encode('utf-8'), salt):
-                    logger.info("Login successful for user %s", username)
-                    return True
-                else:
-                    logger.info("Incorrect password for user %s", username)
-                    return False
-            else:
-                raise ValueError(f"User '{username}' not found.")
-    except sqlite3.Error as e:
-        logger.error("Database error during login for '%s': %s", username, str(e))
-        raise e
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    salt = db.Column(db.String(32), nullable=False)  # 16-byte salt in hex
+    password = db.Column(db.String(64), nullable=False)  # SHA-256 hash in hex
 
-def update_password(username: str, new_password: str) -> None:
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT salt FROM Users WHERE username = ?", (username,))
-            row = cursor.fetchone()
-            if row:
-                salt = row[0]
-                new_hash = bcrypt.hashpw(new_password.encode('utf-8'), salt)
-                cursor.execute("UPDATE Users SET hashed_password = ? WHERE username = ?", (new_hash, username))
-                conn.commit()
-                logger.info("Password updated for user %s", username)
-            else:
-                raise ValueError(f"User '{username}' not found.")
-    except sqlite3.Error as e:
-        logger.error("Database error while updating password for '%s': %s", username, str(e))
-        raise e
+    @staticmethod
+    def _generate_hashed_password(password: str) -> tuple[str, str]:
+        """
+        Generates a salted, hashed password.
 
-def clear_users() -> None:
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DROP TABLE IF EXISTS Users;")
-            cursor.execute("""
-                CREATE TABLE Users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    salt BLOB NOT NULL,
-                    hashed_password BLOB NOT NULL
-                );
-            """)
-            conn.commit()
-            logger.info("Users table reset.")
-    except sqlite3.Error as e:
-        logger.error("Error clearing users: %s", str(e))
-        raise e
+        Args:
+            password (str): The password to hash.
+
+        Returns:
+            tuple: A tuple containing the salt and hashed password.
+        """
+        salt = os.urandom(16).hex()
+        hashed_password = hashlib.sha256((password + salt).encode()).hexdigest()
+        return salt, hashed_password
+
+    @classmethod
+    def create_user(cls, username: str, password: str) -> None:
+        """
+        Create a new user with a salted, hashed password.
+
+        Args:
+            username (str): The username of the user.
+            password (str): The password to hash and store.
+
+        Raises:
+            ValueError: If a user with the username already exists.
+        """
+        salt, hashed_password = cls._generate_hashed_password(password)
+        new_user = cls(username=username, salt=salt, password=hashed_password)
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            logger.info("User successfully added to the database: %s", username)
+        except IntegrityError:
+            db.session.rollback()
+            logger.error("Duplicate username: %s", username)
+            raise ValueError(f"User with username '{username}' already exists")
+        except Exception as e:
+            db.session.rollback()
+            logger.error("Database error: %s", str(e))
+            raise
+
+    @classmethod
+    def check_password(cls, username: str, password: str) -> bool:
+        """
+        Check if a given password matches the stored password for a user.
+
+        Args:
+            username (str): The username of the user.
+            password (str): The password to check.
+
+        Returns:
+            bool: True if the password is correct, False otherwise.
+
+        Raises:
+            ValueError: If the user does not exist.
+        """
+        user = cls.query.filter_by(username=username).first()
+        if not user:
+            logger.info("User %s not found", username)
+            raise ValueError(f"User {username} not found")
+        hashed_password = hashlib.sha256((password + user.salt).encode()).hexdigest()
+        return hashed_password == user.password
+
+    @classmethod
+    def delete_user(cls, username: str) -> None:
+        """
+        Delete a user from the database.
+
+        Args:
+            username (str): The username of the user to delete.
+
+        Raises:
+            ValueError: If the user does not exist.
+        """
+        user = cls.query.filter_by(username=username).first()
+        if not user:
+            logger.info("User %s not found", username)
+            raise ValueError(f"User {username} not found")
+        db.session.delete(user)
+        db.session.commit()
+        logger.info("User %s deleted successfully", username)
+
+    def get_id(self) -> str:
+        """
+        Get the ID of the user.
+
+        Returns:
+            int: The ID of the user.
+        """
+        return self.username
+
+    @classmethod
+    def get_id_by_username(cls, username: str) -> int:
+        """
+        Retrieve the ID of a user by username.
+
+        Args:
+            username (str): The username of the user.
+
+        Returns:
+            int: The ID of the user.
+
+        Raises:
+            ValueError: If the user does not exist.
+        """
+        user = cls.query.filter_by(username=username).first()
+        if not user:
+            logger.info("User %s not found", username)
+            raise ValueError(f"User {username} not found")
+        return user.id
+
+    @classmethod
+    def update_password(cls, username: str, new_password: str) -> None:
+        """
+        Update the password for a user.
+
+        Args:
+            username (str): The username of the user.
+            new_password (str): The new password to set.
+
+        Raises:
+            ValueError: If the user does not exist.
+        """
+        user = cls.query.filter_by(username=username).first()
+        if not user:
+            logger.info("User %s not found", username)
+            raise ValueError(f"User {username} not found")
+
+        salt, hashed_password = cls._generate_hashed_password(new_password)
+        user.salt = salt
+        user.password = hashed_password
+        db.session.commit()
+        logger.info("Password updated successfully for user: %s", username)

@@ -12,13 +12,32 @@ class FavoritesModel:
     """A class to manage favorite countries with caching."""
 
     def __init__(self):
+        self.favorite_country_int = 1
         self.favorites: List[str] = []
         self._country_cache: dict[str, CountryData] = {}
         self._ttl: dict[str, float] = {}
         self.ttl_seconds = int(os.getenv("TTL", 60))
 
+    ##################################################
+    # Country Management Functions
+    ##################################################
+
     def get_country(self, name: str) -> CountryData:
-        """Gets country data from cache or DB/API if not cached."""
+        """
+        Retrieves a country by name, using the internal cache if possible.
+
+        This method checks whether a cached version of the country is available
+        and still valid. If not, it queries the database and/or makes an "REST Countries" API call, updates the cache, and returns the country.
+
+        Args:
+            name (str): The unique name of the country to retrieve.
+
+        Returns:
+            CountryData: The CountryData object corresponding to the given name.
+
+        Raises:
+            ValueError: If the country cannot be found in the database or when calling "REST Countries" API.
+        """
         return get_country_with_cache(
             name,
             self._country_cache,
@@ -26,55 +45,384 @@ class FavoritesModel:
             self.ttl_seconds
         )
 
-    def add_favorite(self, name: str):
-        """Adds a country to the favorites list if not already present."""
-        if name not in self.favorites:
-            self.favorites.append(name)
-            logger.info(f"Added '{name}' to favorites")
+    def add_country_to_favorites(self, name: str):
+        """
+        Adds a country to favorites by name, using the cache or database lookup or API.
+
+        Args:
+            name (str): The name of the country to add to favorites.
+
+        Raises:
+            ValueError: If the country name is invalid or already exists in favorites.
+        """
+        logger.info(f"Received request to add country with name {name} to favorites list.")
+
+        # Check for duplicates BEFORE validating name or calling get_country
+        if name in self.favorites:
+            logger.error(f"Country with name {name} already exists in favorites list.")
+            raise ValueError(f"Country with name '{name}' already exists in the favorites")
+
+        # Validate name (this also checks if the country exists in the database/api)
+        name = self.validate_name(name, check_in_favorites=False)
+
+        # ✅ Append the name (string), not the CountryData object
+        self.favorites.append(name)
+        logger.info(f"Successfully added to Favorites: {name}")
+
 
     def remove_favorite(self, name: str):
-        """Removes a country from the favorites list if present."""
-        if name in self.favorites:
-            self.favorites.remove(name)
-            logger.info(f"Removed '{name}' from favorites")
+        """Removes a country from favorites by its name.
 
-    def list_favorites(self) -> List[str]:
-        """Returns the list of favorite country names."""
-        return self.favorites
-    
-    def is_favorite(self, name: str) -> bool:
-        """Returns True if the country is in the favorites list."""
-        return name in self.favorites
-    
-    def clear_favorites(self):
-        """Clears the favorites list."""
+        Args:
+            name (int): The name of the country to remove from favorites.
+
+        Raises:
+            ValueError: If favorites is empty or the name is invalid.
+
+        """
+        logger.info(f"Received request to remove country with name {name}")
+
+        self.check_if_empty()
+        name = self.validate_name(name, check_in_favorites=False)
+        
+        if name not in self.favorites:
+            logger.warning(f"Country with name {name} not found in favorites list.")
+            raise ValueError(f"Country with name {name} not found in the favorites list.")
+
+        self.favorites.remove(name)
+        logger.info(f"Successfully removed country with name {name} from favorites")
+
+    def remove_country_by_country_list_number(self, country_list_number: int) -> None:
+            """Removes a country from favorites by its list number (1-indexed).
+            
+            Args:
+                list_number (int): The list number of the country to remove.
+
+            Raises:
+                ValueError: If the country is empty or the list number is invalid.
+
+            """
+            logger.info(f"Received request to remove country at list number {country_list_number}")
+
+            self.check_if_empty()
+            country_list_number = self.validate_country_number_in_favorites(country_list_number)
+            favorites_index = country_list_number - 1
+
+            logger.info(f"Successfully removed country at country list number {country_list_number}")
+            del self.favorites[favorites_index]
+            
+            
+    def clear_favorites(self) -> None:
+        """Clears all countries from favorites.
+
+        Clears all countries from favorites. If favorites is already empty, logs a warning.
+
+        """
+        logger.info("Received request to clear favorites list")
+
+        try:
+            if self.check_if_empty():
+                pass
+        except ValueError:
+            logger.warning("Clearing an empty favorites list")
+
         self.favorites.clear()
-        logger.info("Cleared all favorites")
+        logger.info("Successfully cleared favorites list")
 
+    ##################################################
+    # Country Retrieval Functions
+    ##################################################
+
+    def get_all_countries(self) -> List[CountryData]:
+        """Returns a list of all countries in the favorites list using cached country data.
+
+        Returns:
+            List[CountryDAta]: A list of all countries in the favorites list.
+
+        Raises:
+            ValueError: If the favorites list is empty.
+        """
+        self.check_if_empty()
+        logger.info("Retrieving all countries in the favorites list")
+        return [self.get_country(name) for name in self.favorites]
+
+    def get_country_by_name(self, name: str) -> CountryData:
+        """Retrieves a country from favorites by its name using the cache, DB, or API.
+
+        Args:
+            name (str): The name of the country to retrieve.
+
+        Returns:
+            CountryData: The country with the specified name.
+
+        Raises:
+            ValueError: If the favorites list is empty or the country is not found.
+        """
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving country with name {name} from the favorites list")
+        country = self.get_country(name)
+        logger.info(f"Successfully retrieved country: {country.name})")
+        return country
     
-    def compare_favorites(self, name1: str, name2: str) -> dict:
-    """
-    Compare two favorite countries and return key differences.
+    def get_country_by_country_list_number(self, country_list_number: int) -> CountryData:
+        """Retrieves a country from the favorites list by its country list number (1-indexed).
+
+        Args:
+            list_number (int): The list number of the country to retrieve.
+
+        Returns:
+            CountyData: The country at the specified list number.
+
+        Raises:
+            ValueError: If the favorites is empty or the list number is invalid.
+        """
+        self.check_if_empty()
+        country_list_number = self.validate_country_list_number(country_list_number)
+        favorites_index = country_list_number - 1
+
+        logger.info(f"Retrieving country at country list number {country_list_number} from favorites list")
+        name = self.favorites[favorites_index]
+        country = self.get_country(name)
+        logger.info(f"Successfully retrieved country: {country.name})")
+        return country_list_number
     
-    Args:
-        name1 (str): The name of the first country.
-        name2 (str): The name of the second country.
+    #
+    def get_favorite_country(self) -> CountryData:
+        """Returns the favorite country in the list.
 
-    Returns:
-        dict: Dictionary with comparison results.
-    """
-    if name1 not in self.favorites or name2 not in self.favorites:
-        raise ValueError("Both countries must be in favorites to compare.")
+        Returns:
+            CountryData: The CountryData object with index 1.
 
-    country1 = self.get_country(name1)
-    country2 = self.get_country(name2)
+        Raises:
+            ValueError: If the favorites list is empty.
+        """
+        self.check_if_empty()
+        logger.info("Retrieving the favorite country in the list")
+        return self.get_country_by_country_list_number(self.favorite_country_int)
 
-    return {
-        "countries": (country1.name, country2.name),
-        "population_difference": abs(country1.population - country2.population),
-        "area_difference": abs(country1.area_km2 - country2.area_km2),
-        "shared_languages": list(set(country1.languages) & set(country2.languages)),
-        "shared_borders": list(set(country1.borders) & set(country2.borders)),
-        "currencies": (country1.currencies, country2.currencies)
-    }
+    def get_favorites_length(self) -> int:
+        """Returns the number of countries in the favorites list.
+
+        Returns:
+            int: The total number of countries in the favorites list.
+
+        """
+        length = len(self.favorites)
+        logger.info(f"Retrieving total number of favorite countries: {length} countries")
+        return length
+
+    def get_favorites_population(self) -> int:
+        """
+        Returns the total population of the countries in favorites in seconds using cached countries.
+
+        Returns:
+            int: The total duration of all countries in the favorites in seconds.
+        """
+        total_population = sum(self.get_country(name).population for name in self.favorites)
+        logger.info(f"Retrieving total favorites population: {total_population} people")
+        return total_population
+    
+    def compare_two_favorites(self, country1_name: str, country2_name: str) -> dict:
+        """
+        Compare two favorite countries and return key differences.
+        
+        Args:
+            country1_name (str): The name of the first country.
+            country2_name (str): The name of the second country.
+
+        Returns:
+            dict: Dictionary with comparison results.
+        """
+        if country1_name not in self.favorites or country2_name not in self.favorites:
+            raise ValueError("Both countries must be in favorites to compare.")
+
+        country1 = self.get_country(country1_name)
+        country2 = self.get_country(country2_name)
+
+        return {
+            "countries": (country1.name, country2.name),
+            "population_difference": abs(country1.population - country2.population),
+            "shared_languages": list(set(country1.languages) & set(country2.languages)),
+            "shared_borders": list(set(country1.borders) & set(country2.borders)),
+            "currencies": (country1.currencies, country2.currencies)
+        }
+    
+    ##################################################
+    # Favorites Movement Functions
+    ##################################################
+
+    def go_to_country_list_number(self, country_list_number: int) -> None:
+        """Sets the country list number specified to the first spot.
+
+        Args:
+            country_list_number (int): The country_list number to set as the current country_list.
+
+        Raises:
+            ValueError: If the favorites is empty or the country_list number is invalid.
+
+        """
+        self.check_if_empty()
+        country_list_number = self.validate_country_list_number(country_list_number)
+        logger.info(f"Setting favorite country number to {country_list_number}")
+        self.favorite_country_int = country_list_number
+
+    # Delete this one, don't add to unit tests
+    # def go_to_random_country_list(self) -> None:
+    #     """Sets the favorite country list number to a randomly selected country in favorites.
+
+    #     Raises:
+    #         ValueError: If the favorites is empty.
+
+    #     """
+    #     self.check_if_empty()
+
+    #     # Get a random index using the random.org API
+    #     random_country_list = get_random(self.get_favorites_length())
+
+    #     logger.info(f"Setting current country_list number to random country_list: {random_country_list}")
+    #     self.current_country_list_number = random_country_list
+
+    def move_country_to_top(self, name: str) -> None:
+        """Moves a country to the top of the favorites list .
+
+        Args:
+            name (int): The name of the country to move.
+       
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+
+        """
+        logger.info(f"Moving country with name {name} to the top of the favorites list")
+        self.check_if_empty()
+        name = self.validate_name(name)
+
+        self.favorites.remove(name)
+        self.favorites.insert(0, name)
+
+        logger.info(f"Successfully moved country with name {name} to the top")
+
+    def move_country_to_bottom(self, name: str) -> None:
+        """Moves a country to the bottom of the favorites list.
+
+        Args:
+            name (int): The name of the country to move.
+
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+
+        """
+        logger.info(f"Moving country with name {name} to the bottom of the favorites list")
+        self.check_if_empty()
+        name = self.validate_name(name)
+
+        self.favorites.remove(name)
+        self.favorites.append(name)
+
+        logger.info(f"Successfully moved country with name {name} to the bottom of the favorites list")
+
+    def move_country_to_country_list_number(self, name: str, country_list_number: int) -> None:
+        """Moves a country to a specific country list number in the favorites list.
+
+        Args:
+            name (str): The name of the country to move.
+            country_list_number (int): The country list number to move the country to (1-indexed).
+
+        Raises:
+            ValueError: If the favorites list is empty, the country name is invalid, or the country list number is out of range.
+
+        """
+        logger.info(f"Moving country with name {name} to country list number {country_list_number}")
+        self.check_if_empty()
+        name = self.validate_name(name)
+        country_list_number = self.validate_country_list_number(country_list_number)
+
+        favorites_index = country_list_number - 1
+
+        self.favorites.remove(name)
+        self.favorites.insert(favorites_index, name)
+
+        logger.info(f"Successfully moved country with name {name} to country_list number {country_list_number}")
+
+
+    ##################################################
+        # Utility Functions
+    ##################################################
+
+    def validate_name(self, name: str, check_in_favorites: bool = True) -> str:
+        """
+            Validates the given name.
+
+            Args:
+                name (str): The name to validate.
+                check_in_favorites (bool, optional): If True, verifies the name is present in favorites.
+                                                    If False, skips that check. Defaults to True.
+
+            Returns:
+                str: The validated name.
+
+            Raises:
+                ValueError: If the name is not found in favorites (if check_in_favorites=True),
+                            or not found in the database
+                            ???or not found in API call???.
+        """
+        if check_in_favorites and name not in self.favorites:
+            logger.error(f"Country with name {name} not found in favorites")
+            raise ValueError(f"Song with id {name} not found in favorites")
+
+        try:
+            self.get_country(name)
+        except Exception as e:
+            logger.error(f"Country with name {name} not found in database: {e}")
+            raise ValueError(f"Country with name {name} not found in database")
+
+        return name
+    
+    def validate_country_number_in_favorites(self, country_list_number: int) -> int:
+        """
+        Validates the given country list number in favorites, ensuring it is within the favorites range.
+
+        Args:
+            country_list_number (int): The list number to validate.
+
+        Returns:
+            int: The validated country list number.
+
+        Raises:
+            ValueError: If the country list number is not a valid positive integer or is out of range.
+
+        """
+        try:
+            country_list_number = int(country_list_number)
+            if not (1 <= country_list_number <= self.get_favorites_length()):
+                raise ValueError(f"Invalid list number: {country_list_number}")
+        except ValueError as e:
+            logger.error(f"Invalid list number: {country_list_number}")
+            raise ValueError(f"Invalid list number: {country_list_number}") from e
+
+        return country_list_number
+    
+    def check_if_empty(self) -> None:
+        """
+        Checks if favorites is empty and raises a ValueError if it is.
+
+        Raises:
+            ValueError: If favorites is empty.
+
+        """
+        if not self.favorites:
+            logger.error("Favorites is empty")
+            raise ValueError("Favorites is empty")
+        
+    def is_valid_country_list_number(self, country_list_number: int) -> bool:
+        """
+        Checks if the given country list number is valid (within the range of the favorites list).
+
+        Args:
+            country_list_number (int): The list number to check (1-indexed).
+
+        Returns:
+            bool: True if valid, False otherwise.
+        """
+        return 1 <= country_list_number <= len(self.favorites)
 
