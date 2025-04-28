@@ -49,17 +49,18 @@ class CountryData(db.Model):
             raise ValueError("Region must be a non-empty string.")
         if not isinstance(self.population, int) or self.population <= 0:
             raise ValueError("Population must be a positive integer.")
-        if not isinstance(self.languages, list) or not all(isinstance(lang, str) for lang in self.languages):
-            raise ValueError("Languages must be a list of strings.")
-        if not isinstance(self.currencies, list) or not all(isinstance(currency, str) for currency in self.currencies):
-            raise ValueError("Currencies must be a list of strings.")
+        if not isinstance(self.languages, list) or len(self.languages) == 0 or not all(isinstance(lang, str) for lang in self.languages):
+            raise ValueError("Languages must be a non-empty list of strings.")
+        if not isinstance(self.currencies, list) or len(self.currencies) == 0 or not all(isinstance(currency, str) for currency in self.currencies):
+            raise ValueError("Currencies must be a non-empty list of strings.")
         if self.borders is not None:
             if not isinstance(self.borders, list) or not all(isinstance(border, str) for border in self.borders):
                 raise ValueError("Borders must be a list of strings if provided.")
         if self.flag_url is not None and not isinstance(self.flag_url, str):
             raise ValueError("Flag URL must be a string if provided.")
-        if not isinstance(self.timezones, list) or not all(isinstance(timezone, str) for timezone in self.timezones):
-            raise ValueError("Timezones must be a list of strings.")
+        if not isinstance(self.timezones, list) or len(self.timezones) == 0 or not all(isinstance(timezone, str) for timezone in self.timezones):
+            raise ValueError("Timezones must be a non-empty list of strings.")
+
 
     @classmethod
     def create_country(cls, name: str, capital: str, region: str, population: int, languages: List[str], 

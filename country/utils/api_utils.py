@@ -21,7 +21,6 @@ def normalize_country(data: dict) -> CountryData:
         capital=data.get("capital", ["Unknown"])[0],
         region=data.get("region", "Unknown"),
         population=data.get("population", 0),
-        area_km2=data.get("area", 0.0),
         languages=list(data.get("languages", {}).values()),
         currencies=list(data.get("currencies", {}).keys()),
         borders=data.get("borders", []),
@@ -93,12 +92,9 @@ def get_country_with_cache(name: str, cache: dict, ttl: dict, ttl_seconds: int) 
         logger.debug(f"Country '{name}' retrieved from cache")
         return cache[name]
 
-    try:
-        country = CountryData.get_country_by_name(name)
-        logger.info(f"Country name {name} loaded from DB")
-    except ValueError as e:
-        logger.error(f"Country name {name} not found in DB: {e}")
-        raise ValueError(f"Country name {name} not found in database") from e
+    country = get_or_fetch_country(name)
+    if not country:
+        raise ValueError(f"Country name '{name}' not found in database or API")
 
     cache[name] = country
     ttl[name] = now + ttl_seconds
