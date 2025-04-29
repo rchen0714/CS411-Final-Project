@@ -187,7 +187,10 @@ class FavoritesModel:
         logger.info(f"Successfully retrieved country: {country.name})")
         return country_list_number
     
-    #
+    ##################################################
+    # Managing Favorites List
+    ##################################################
+    
     def get_favorite_country(self) -> CountryData:
         """Returns the favorite country in the list.
 
@@ -223,6 +226,162 @@ class FavoritesModel:
         logger.info(f"Retrieving total favorites population: {total_population} people")
         return total_population
     
+    ##################################################
+    # Retrieving information about Favorite Country
+    ##################################################
+    
+    def get_currency_of_favorite(self, name: str) -> str:
+        """ Returns the currency of a country in favorites.
+
+        Args:
+            name (str): The name of the Country 
+
+        Returns:
+            str: The Currencies of the country
+            
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+        """
+        
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving currency information for country: {name}")
+        
+        country = self.get_country(name)
+        if not country.currencies:
+            logger.warning(f"Country {name} has no currency information.")
+            return "No currency available for this country."
+        
+        currency_info = ", ".join(country.currencies)
+        logger.info(f"Currencies for {name}: {currency_info}")
+        return currency_info
+    
+    def get_languages_of_favorite(self, name: str) -> str:
+        """ Returns the languages of a country in favorites.
+
+        Args:
+            name (str): The name of the Country 
+
+        Returns:
+            str: The Languages of the country
+            
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+        """
+        
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving language information for country: {name}")
+        
+        country = self.get_country(name)
+        if not country.languages:
+            logger.warning(f"Country {name} has no language information.")
+            return "No language available for this country."
+        
+        language_info = ", ".join(country.languages)
+        logger.info(f"Languages for {name}: {language_info}")
+        return language_info
+    
+    def get_borders_of_favorite(self, name: str) -> str:  
+        """ Returns the borders of a country in favorites.
+
+        Args:
+            name (str): The name of the Country 
+
+        Returns:
+            str: The Borders of the country
+            
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+        """
+        
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving border information for country: {name}")
+        
+        country = self.get_country(name)
+        if not country.borders:
+            logger.warning(f"Country {name} has no border information.")
+            return "No border available for this country."
+        
+        border_info = ", ".join(country.borders)
+        logger.info(f"Borders for {name}: {border_info}")
+        return border_info
+    
+    def get_population_of_favorite(self, name: str) -> int:
+        """ Returns the population of a country in favorites.
+
+        Args:
+            name (str): The name of the Country 
+
+        Returns:
+            str: The Population of the country
+            
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+        """
+        
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving population information for country: {name}")
+        
+        country = self.get_country(name)
+        logger.info(f"Population for {name}: {country.population}")
+        
+        return country.population
+    
+    def get_region_of_favorite(self, name: str) -> str:
+        """ Returns the region of a country in favorites.
+
+        Args:
+            name (str): The name of the Country 
+
+        Returns:
+            str: The Region of the country
+            
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+        """
+        
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving region information for country: {name}")
+        
+        country = self.get_country(name)    
+        logger.info(f"Region for {name}: {country.region}")
+        
+        return country.region
+    
+    def get_flag_of_favorite(self, name: str) -> str:
+        """ Returns the flag of a country in favorites.
+
+        Args:
+            name (str): The name of the Country 
+
+        Returns:
+            str: The Flag of the country
+            
+        Raises:
+            ValueError: If the favorites list is empty or the country name is invalid.
+        """
+        
+        self.check_if_empty()
+        name = self.validate_name(name)
+        logger.info(f"Retrieving flag information for country: {name}")
+        
+        country = self.get_country(name)
+        if not country.flag_url:
+            logger.warning(f"Country {name} has no flag image uploaded.")
+            return "No flag image available for this country."
+        
+        logger.info(f"Flag for {name}: {country.flag}")
+        return country.flag
+    
+
+    ##################################################
+    # Comparing Two Countries 
+    ##################################################
+    
     def compare_two_favorites(self, country1_name: str, country2_name: str) -> dict:
         """
         Compare two favorite countries and return key differences.
@@ -239,13 +398,16 @@ class FavoritesModel:
 
         country1 = self.get_country(country1_name)
         country2 = self.get_country(country2_name)
+        
+        logger.info(f"Comparing countries: {country1.name} and {country2.name}")
 
         return {
             "countries": (country1.name, country2.name),
             "population_difference": abs(country1.population - country2.population),
             "shared_languages": list(set(country1.languages) & set(country2.languages)),
-            "shared_borders": list(set(country1.borders) & set(country2.borders)),
-            "currencies": (country1.currencies, country2.currencies)
+            "shared_currencies": list(set(country1.currencies) & set(country2.currencies)),
+            "regions": (country1.region, country2.region),
+            "flags": (country1.flag_url or "No flag available", country2.flag_url or "No flag available"),
         }
     
     ##################################################
@@ -346,7 +508,7 @@ class FavoritesModel:
 
 
     ##################################################
-        # Utility Functions
+        # Validation Functions
     ##################################################
 
     def validate_name(self, name: str, check_in_favorites: bool = True) -> str:

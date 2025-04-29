@@ -208,7 +208,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": "New password is required"
                 }), 400)
 
-            username = favorite_user.username
+            username = current_user.username
             Users.update_password(username, new_password)
             return make_response(jsonify({
                 "status": "success",
@@ -333,10 +333,10 @@ def create_app(config_class=ProductionConfig) -> Flask:
                 }), 400)
 
             name = data["name"]
-            capital = data["title"]
-            region = data["year"]
-            population = data["genre"]
-            languages = data["duration"]
+            capital = data["capital"]
+            region = data["region"]
+            population = data["population"]
+            languages = data["languages"]
             currencies = data["currencies"]
             borders = data["borders"]
             flag_url = data["flag_url"]
@@ -379,7 +379,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             }), 500)
 
 
-    @app.route('/api/delete-country/<int:name>', methods=['DELETE'])
+    @app.route('/api/delete-country/<string:name>', methods=['DELETE'])
     @login_required
     def delete_country(name: str) -> Response:
         """Route to delete a country by name.
@@ -996,7 +996,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info(f"Received request to move country to top: {name}")
 
             country = CountryData.get_country_by_name(name)
-            favorites_model.move_country_to_top(country.id)
+            favorites_model.move_country_to_top(name)
 
             app.logger.info(f"Successfully moved country to top: {name}")
             return make_response(jsonify({
@@ -1048,7 +1048,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info(f"Received request to move country to end: {name}")
 
             country = CountryData.get_country_by_name(name)
-            favorites_model.move_country_to_end(country.id)
+            favorites_model.move_country_to_end(name)
 
             app.logger.info(f"Successfully moved country to end: {name}")
             return make_response(jsonify({
@@ -1098,7 +1098,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info(f"Received request to move country to country list number {country_list_number}: {name}")
 
             country = CountryData.get_country_by_name(name)
-            favorites_model.move_country_to_country_list_number(country.id, country_list_number)
+            favorites_model.move_country_to_country_list_number(name, country_list_number)
 
             app.logger.info(f"Successfully moved country to country list number {country_list_number}: {name}")
             return make_response(jsonify({
