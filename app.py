@@ -996,7 +996,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info(f"Received request to move country to top: {name}")
 
             country = CountryData.get_country_by_name(name)
-            favorites_model.move_country_to_top(name)
+            favorites_model.move_country_to_top(country.id)
 
             app.logger.info(f"Successfully moved country to top: {name}")
             return make_response(jsonify({
@@ -1048,7 +1048,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info(f"Received request to move country to end: {name}")
 
             country = CountryData.get_country_by_name(name)
-            favorites_model.move_country_to_end(name)
+            favorites_model.move_country_to_end(country.id)
 
             app.logger.info(f"Successfully moved country to end: {name}")
             return make_response(jsonify({
@@ -1098,7 +1098,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info(f"Received request to move country to country list number {country_list_number}: {name}")
 
             country = CountryData.get_country_by_name(name)
-            favorites_model.move_country_to_country_list_number(name, country_list_number)
+            favorites_model.move_country_to_country_list_number(country.id, country_list_number)
 
             app.logger.info(f"Successfully moved country to country list number {country_list_number}: {name}")
             return make_response(jsonify({
