@@ -114,7 +114,7 @@ Content:
 ```json
 {
     "status": "success",
-    "message": f"User '{username}' logged in successfully"
+    "message": "User 'username' logged in successfully"
 }
 ```
 
