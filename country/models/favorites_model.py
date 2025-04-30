@@ -421,21 +421,6 @@ class FavoritesModel:
         logger.info(f"Setting favorite country number to {country_list_number}")
         self.favorite_country_int = country_list_number
 
-    # Delete this one, don't add to unit tests
-    # def go_to_random_country_list(self) -> None:
-    #     """Sets the favorite country list number to a randomly selected country in favorites.
-
-    #     Raises:
-    #         ValueError: If the favorites is empty.
-
-    #     """
-    #     self.check_if_empty()
-
-    #     # Get a random index using the random.org API
-    #     random_country_list = get_random(self.get_favorites_length())
-
-    #     logger.info(f"Setting current country_list number to random country_list: {random_country_list}")
-    #     self.current_country_list_number = random_country_list
 
     def move_country_to_top(self, name: str) -> None:
         """Moves a country to the top of the favorites list .
