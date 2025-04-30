@@ -57,15 +57,12 @@ class FavoritesModel:
         """
         logger.info(f"Received request to add country with name {name} to favorites list.")
 
-        # Check for duplicates BEFORE validating name or calling get_country
         if name in self.favorites:
             logger.error(f"Country with name {name} already exists in favorites list.")
             raise ValueError(f"Country with name '{name}' already exists in the favorites")
 
-        # Validate name (this also checks if the country exists in the database/api)
         name = self.validate_name(name, check_in_favorites=False)
 
-        # ✅ Append the name (string), not the CountryData object
         self.favorites.append(name)
         logger.info(f"Successfully added to Favorites: {name}")
 
@@ -178,18 +175,25 @@ class FavoritesModel:
             ValueError: If the favorites is empty or the list number is invalid.
         """
         self.check_if_empty()
-        country_list_number = self.validate_country_list_number(country_list_number)
+        country_list_number = self.is_valid_country_list_number(country_list_number)
         favorites_index = country_list_number - 1
 
         logger.info(f"Retrieving country at country list number {country_list_number} from favorites list")
         name = self.favorites[favorites_index]
         country = self.get_country(name)
         logger.info(f"Successfully retrieved country: {country.name})")
-        return country_list_number
+        return country
     
     ##################################################
-    # Managing Favorites List
+    # Retrieving information about Favorite Country
     ##################################################
+    
+    def test_get_favorites_length(favorites_model, sample_favorites):
+        """Test that the correct length of favorites is returned."""
+        favorites_model.favorites = [country.name for country in sample_favorites]
+        length = favorites_model.get_favorites_length()
+        assert length == len(sample_favorites)
+    
     
     def get_favorite_country(self) -> CountryData:
         """Returns the favorite country in the list.
@@ -214,21 +218,6 @@ class FavoritesModel:
         length = len(self.favorites)
         logger.info(f"Retrieving total number of favorite countries: {length} countries")
         return length
-
-    def get_favorites_population(self) -> int:
-        """
-        Returns the total population of the countries in favorites in seconds using cached countries.
-
-        Returns:
-            int: The total duration of all countries in the favorites in seconds.
-        """
-        total_population = sum(self.get_country(name).population for name in self.favorites)
-        logger.info(f"Retrieving total favorites population: {total_population} people")
-        return total_population
-    
-    ##################################################
-    # Retrieving information about Favorite Country
-    ##################################################
     
     def get_currency_of_favorite(self, name: str) -> str:
         """ Returns the currency of a country in favorites.
@@ -374,8 +363,8 @@ class FavoritesModel:
             logger.warning(f"Country {name} has no flag image uploaded.")
             return "No flag image available for this country."
         
-        logger.info(f"Flag for {name}: {country.flag}")
-        return country.flag
+        logger.info(f"Flag for {name}: {country.flag_url}")
+        return country.flag_url
     
 
     ##################################################
@@ -425,7 +414,10 @@ class FavoritesModel:
 
         """
         self.check_if_empty()
-        country_list_number = self.validate_country_list_number(country_list_number)
+        
+        if not self.is_valid_country_list_number(country_list_number):
+            raise ValueError(f"Invalid country list number: {country_list_number}")
+    
         logger.info(f"Setting favorite country number to {country_list_number}")
         self.favorite_country_int = country_list_number
 
@@ -497,8 +489,9 @@ class FavoritesModel:
         logger.info(f"Moving country with name {name} to country list number {country_list_number}")
         self.check_if_empty()
         name = self.validate_name(name)
-        country_list_number = self.validate_country_list_number(country_list_number)
-
+        if not self.is_valid_country_list_number(country_list_number):
+            raise ValueError(f"Invalid country list number: {country_list_number}")
+        
         favorites_index = country_list_number - 1
 
         self.favorites.remove(name)

@@ -347,12 +347,13 @@ def create_app(config_class=ProductionConfig) -> Flask:
                 or not isinstance(capital, str)
                 or not isinstance(region, str)
                 or not isinstance(population, int)
-                or not isinstance(languages, list[str])
-                or not isinstance(currencies, list[str])
-                or not isinstance(borders, list[str])
+                or not isinstance(languages, list) or not all(isinstance(lang, str) for lang in languages)
+                or not isinstance(currencies, list) or not all(isinstance(curr, str) for curr in currencies)
+                or not isinstance(borders, list) or not all(isinstance(border, str) for border in borders)
                 or not isinstance(flag_url, str)
-                or not isinstance(timezones, list[str])
+                or not isinstance(timezones, list) or not all(isinstance(tz, str) for tz in timezones)
             ):
+
                 app.logger.warning("Invalid input data types")
                 return make_response(jsonify({
                     "status": "error",
@@ -555,7 +556,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": f"Country '{name}' not found in database"
                 }), 400)
 
-            favorites_model.add_country_to_favorites(country)
+            favorites_model.add_country_to_favorites(country.name)
             app.logger.info(f"Successfully added country to favorites: {name}")
 
             return make_response(jsonify({
@@ -614,7 +615,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
                     "message": f"Country '{name}' not found in database"
                 }), 400)
 
-            favorites_model.remove_country_by_name(country.id)
+            favorites_model.remove_favorite(name)
             app.logger.info(f"Successfully removed country from favorites: {name}")
 
             return make_response(jsonify({
@@ -779,11 +780,13 @@ def create_app(config_class=ProductionConfig) -> Flask:
             app.logger.info("Received request to retrieve all countries from the favorites.")
 
             countries = favorites_model.get_all_countries()
+            
+            countries_dict = [country.to_dict() for country in countries]
 
             app.logger.info(f"Successfully retrieved {len(countries)} countries from the favorites.")
             return make_response(jsonify({
                 "status": "success",
-                "countries": countries
+                "countries": countries_dict
             }), 200)
 
         except Exception as e:

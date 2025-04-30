@@ -30,7 +30,7 @@ def country_usa(session):
     return country
 
 @pytest.fixture
-def country_cananda(session):
+def country_canada(session):
     """Fixture for a Canada country."""
     country = CountryData(
         name="Canada",
@@ -48,9 +48,9 @@ def country_cananda(session):
     return country
 
 @pytest.fixture
-def sample_favorites(country_usa, country_cananda):
+def sample_favorites(country_usa, country_canada):
     """Fixture for a sample favorites list."""
-    return [country_usa, country_cananda]
+    return [country_usa, country_canada]
 
 ##############################################################
 # Favorites API Test Cases
@@ -130,6 +130,56 @@ def test_clear_favorites(favorites_model):
     favorites_model.clear_favorites()
     assert len(favorites_model.favorites) == 0, "Playlist should be empty after clearing"
 
+##################################################
+# Tesing Country Retrieval Functions
+##################################################
+
+def test_get_all_countries_returns_list(favorites_model, country_usa, country_canada, mocker):
+    """Test get_all_countries returns a list of CountryData objects."""
+    
+    def mimick_cache(name, cache=None, ttl=None, ttl_seconds=60):
+        if name == "United States":
+            return country_usa
+        elif name == "Canada":
+            return country_canada
+        else:
+            return ValueError("Unknown country")
+        
+    mocker.patch(
+        "country.models.favorites_model.get_country_with_cache", 
+        side_effect=mimick_cache
+    )
+    favorites_model.favorites = ["United States", "Canada"]
+    result = favorites_model.get_all_countries()
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0].name == "United States"
+    assert result[1].name == "Canada"
+
+def test_get_country_by_name(favorites_model, country_usa, mocker):
+    """Test get_country_by_name returns the correct country object."""
+    mocker.patch(
+        "country.models.favorites_model.get_country_with_cache", 
+        return_value=country_usa
+    )
+    favorites_model.favorites = ["United States"]
+    result = favorites_model.get_country_by_name("United States")
+    assert isinstance(result, CountryData)
+    assert result.name == "United States"
+    
+def test_get_country_by_country_list_number(favorites_model, country_canada, mocker):
+    """Test retrieving a country by its list number (1-indexed)."""
+    mocker.patch(
+        "country.models.favorites_model.get_country_with_cache", 
+        return_value=country_canada
+    )
+    favorites_model.favorites = ["Canada"]
+    result = favorites_model.get_country_by_country_list_number(1)
+    
+    assert isinstance(result, CountryData)
+    assert result.name == "Canada"
+
+
 ##############################################################
 # Get Info of Favorite Test Cases
 ##############################################################
@@ -137,5 +187,96 @@ def test_clear_favorites(favorites_model):
 def test_get_currency_favorite(favorites_model, sample_favorites):
     """Test getting the currency of a favorite."""
     favorites_model.favorites = [country.name for country in sample_favorites]
-    assert favorites_model.get_currency_favorite("United States") == "USD"
-    assert favorites_model.get_currency_favorite("Canada") == "CAD"
+    
+    assert favorites_model.get_currency_of_favorite("United States") == "USD"
+    assert favorites_model.get_currency_of_favorite("Canada") == "CAD"
+    
+def test_get_languages_of_favorite(favorites_model, sample_favorites):
+    """Test getting the languages of a favorite."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    
+    assert favorites_model.get_languages_of_favorite("United States") == "English"
+    assert favorites_model.get_languages_of_favorite("Canada") == "English, French"
+    
+def test_get_borders_of_favorite(favorites_model, sample_favorites):
+    """Test getting the borders of a favorite."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    
+    assert favorites_model.get_borders_of_favorite("United States") == "CAN, MEX"
+    assert favorites_model.get_borders_of_favorite("Canada") == "USA"
+    
+def test_get_population_of_favorite(favorites_model, sample_favorites):
+    """Test getting the population of a favorite."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    
+    assert favorites_model.get_population_of_favorite("United States") == 331000000
+    assert favorites_model.get_population_of_favorite("Canada") == 38000000
+    
+def test_get_region_of_favorite(favorites_model, sample_favorites):
+    """Test getting the region of a favorite."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    
+    assert favorites_model.get_region_of_favorite("United States") == "Americas"
+    assert favorites_model.get_region_of_favorite("Canada") == "Americas"
+    
+def test_get_flag_of_favorite(favorites_model, sample_favorites):
+    """Test getting the flag URL of a favorite."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    
+    assert favorites_model.get_flag_of_favorite("United States") == "https://example.com/flag_usa.png"
+    assert favorites_model.get_flag_of_favorite("Canada") == "https://example.com/flag_canada.png"
+    
+    
+##############################################################
+# Managing Favorite List Test Cases
+##############################################################
+
+
+
+##############################################################
+# Test case for comparing two countries 
+##############################################################
+
+def test_compare_two_favorites(favorites_model, sample_favorites):
+    """Test comparing two favorites."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    comparison = favorites_model.compare_two_favorites("United States", "Canada")
+    
+    assert comparison["countries"] == ("United States", "Canada")
+    assert "population_difference" in comparison
+    assert "shared_languages" in comparison
+    assert "shared_currencies" in comparison
+    assert "regions" in comparison
+    assert "flags" in comparison
+
+##############################################################
+# Moving Favorites test cases
+##############################################################
+
+def test_move_country_to_top(favorites_model, sample_favorites):
+    """Test moving a country to the top of the favorites list."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    favorites_model.move_country_to_top("Canada")
+    
+    assert favorites_model.favorites[0] == "Canada"
+
+def test_move_country_to_bottom(favorites_model, sample_favorites):
+    """Test moving a country to the bottom of the favorites list."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    favorites_model.move_country_to_bottom("United States")
+    
+    assert favorites_model.favorites[-1] == "United States"
+    
+def test_move_country_to_country_list_number(favorites_model, sample_favorites):
+    """Test moving a country to a specific position in the favorites list."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    favorites_model.move_country_to_country_list_number("Canada", 1)
+    
+    assert favorites_model.favorites[0] == "Canada"
+    
+def test_go_to_country_list_number(favorites_model, sample_favorites):
+    """Test going to a specific position in the favorites list."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    favorites_model.go_to_country_list_number(2)
+    
+    assert favorites_model.favorite_country_int == 2
