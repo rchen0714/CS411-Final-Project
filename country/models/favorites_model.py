@@ -71,7 +71,7 @@ class FavoritesModel:
         """Removes a country from favorites by its name.
 
         Args:
-            name (int): The name of the country to remove from favorites.
+            name (str): The name of the country to remove from favorites.
 
         Raises:
             ValueError: If favorites is empty or the name is invalid.
@@ -426,7 +426,7 @@ class FavoritesModel:
         """Moves a country to the top of the favorites list .
 
         Args:
-            name (int): The name of the country to move.
+            name (str): The name of the country to move.
        
         Raises:
             ValueError: If the favorites list is empty or the country name is invalid.
@@ -445,7 +445,7 @@ class FavoritesModel:
         """Moves a country to the bottom of the favorites list.
 
         Args:
-            name (int): The name of the country to move.
+            name (str): The name of the country to move.
 
         Raises:
             ValueError: If the favorites list is empty or the country name is invalid.
