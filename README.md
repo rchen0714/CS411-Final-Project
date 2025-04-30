@@ -72,7 +72,7 @@ Content:
 ```json
 {
     "status": "success",
-    "message": f"User '{username}' created successfully"
+    "message": "User 'username' created successfully"
 }
 ```
 
@@ -264,7 +264,7 @@ Content:
 ```json
 {
   "status": "success",
-  "message": f"CountryData table recreated successfully"
+  "message": "CountryData table recreated successfully"
 }
 ```
 
@@ -384,7 +384,7 @@ Content:
 {
   "status": "success",
   "message": "CountryData retrieved successfully",
-  "countries": [ ... ]
+  "countries": []
 }
 ```
 
@@ -396,7 +396,7 @@ Example Response:
 {
   "status": "success",
   "message": "CountryData retrieved successfully",
-  "countries": [ ... ]
+  "countries": []
 }
 ```
 
@@ -551,8 +551,8 @@ Content:
 ```json
 {
   "status": "success",
-  "favorites_length": favorites_length,
-  "favorites_population": favorites_population
+  "favorites_length": 2
+  "favorites_population": 15000000
 }
 ```
 
@@ -565,8 +565,8 @@ Example Response:
 ```json
 {
   "status": "success",
-  "favorites_length": favorites_length,
-  "favorites_population": favorites_population
+  "favorites_length": 2
+  "favorites_population": 15000000
 }
 ```
 
