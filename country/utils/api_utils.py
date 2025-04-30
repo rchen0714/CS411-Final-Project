@@ -112,6 +112,26 @@ def fetch_countries_by_language(language: str) -> List[CountryData]:
         logger.error(f"Error fetching countries by language '{language}': {e}")
     return []
 
+def fetch_countries_by_region(region: str) -> List[CountryData]:
+    """Fetches a list of countries by a specfic region
+
+    Args:
+        region (str): The name of a specfic region as a string 
+
+    Returns:
+        List[CountryData]: A list of the normalized CountryData objects within the region 
+    """
+    
+    logger.info(f"Fetching countries by region: {region}")
+    try:
+        response = requests.get(f"{REST_COUNTRY_BASE_URL}/region/{region}")
+        if response.status_code == 200:
+            return [normalize_country(c) for c in response.json()]
+        logger.warning(f"No countries found for region: {region}")
+    except requests.RequestException as e:
+        logger.error(f"Error fetching countries by region '{region}': {e}")
+    return []
+
 def fetch_random_country() -> CountryData | None:
     """Fetch a random country."""
     logger.info("Fetching a random country")

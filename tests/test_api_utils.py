@@ -3,7 +3,7 @@ import requests
 from app import create_app
 from config import TestConfig
 from unittest import mock
-from country.utils.api_utils import fetch_country_by_name, get_or_fetch_country, fetch_countries_by_language, fetch_random_country
+from country.utils.api_utils import fetch_country_by_name, get_or_fetch_country, fetch_countries_by_language, fetch_random_country, fetch_countries_by_region
 from country.models.country_model import CountryData
 
 @pytest.fixture
@@ -77,6 +77,19 @@ def test_fetch_countries_by_language(mock_country_response):
         
         assert len(countries) > 0
         assert countries[0].name == "Testland"
+        
+def test_fetch_countries_by_region(mock_country_response):
+    """Test fetching a country by region"""
+    
+    with mock.patch('requests.get') as mock_get:
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = [mock_country_response]
+        
+        countries = fetch_countries_by_region("Test Region")
+        
+        assert len(countries) > 0
+        assert countries[0].name == "Testland"
+        assert countries[0].region == "Test Region"
 
 
 def test_fetch_random_country(mock_country_response):
@@ -108,4 +121,6 @@ def test_get_country_from_cache_or_db(test_app, mock_country_response):
             # Assertions
             assert country.name == "Testland"
             mock_query.filter_by.assert_called_once_with(name="Testland")
+            
+            
 

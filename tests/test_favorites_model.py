@@ -129,3 +129,13 @@ def test_clear_favorites(favorites_model):
 
     favorites_model.clear_favorites()
     assert len(favorites_model.favorites) == 0, "Playlist should be empty after clearing"
+
+##############################################################
+# Get Info of Favorite Test Cases
+##############################################################
+
+def test_get_currency_favorite(favorites_model, sample_favorites):
+    """Test getting the currency of a favorite."""
+    favorites_model.favorites = [country.name for country in sample_favorites]
+    assert favorites_model.get_currency_favorite("United States") == "USD"
+    assert favorites_model.get_currency_favorite("Canada") == "CAD"
