@@ -28,15 +28,21 @@ Response Format: JSON
 
 Success Response Example:
 Code: 200
-Content: { "status": "healthy" }
+Content: 
+
+```json
+{ "status": "healthy" }
+```
 
 Example Request:
 curl -X GET http://localhost:5000/api/health
 
 Example Response:
+```json
 {
   "status": "healthy"
 }
+```
 
 
 ### Create User 
@@ -50,10 +56,12 @@ Purpose: Creates a new user
 
 Request Body:
 
+```json
 {
   "username": "testuser",
   "password": "securepassword"
 }
+```
 
 Response Format: JSON
 
@@ -61,21 +69,24 @@ Success Response Example:
 Code: 201
 Content: 
 
+```json
 {
     "status": "success",
     "message": f"User '{username}' created successfully"
 }
+```
 
 Example Request:
 curl -X PUT http://localhost:5000/api/create-user -H "Content-Type: application/json" \
 -d '{"username":{username}, "password":"securepassword"}'
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "User {username} created successfully"
 }
-
+```
 
 
 ### Login 
@@ -88,31 +99,36 @@ Request Type: POST
 Purpose: Login as an existing user
 
 Request Body:
+```json
 {
   "username": "testuser",
   "password": "securepassword"
 }
+```
 
 Response Format: JSON
 
 Success Response Example:
 Code: 200
 Content: 
+```json
 {
     "status": "success",
     "message": f"User '{username}' logged in successfully"
 }
+```
 
 Example Request:
 curl -X POST http://localhost:5000/api/login -H "Content-Type: application/json" \
 -d '{"username":{username}, "password":{securepassword}}'
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "User {username} logged in successfully"
 }
-
+```
 
 
 ### Logout 
@@ -131,19 +147,25 @@ Response Format: JSON
 
 Success Response Example:
 Code: 200
-Content: {
-            "status": "success",
-            "message": "User logged out successfully"
-        }
+Content: 
+```json
+{
+  "status": "success",
+  "message": "User logged out successfully"
+}
+```
 
 Example Request:
 curl -X POST http://localhost:5000/api/logout
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "User logged out successfully"
 }
+```
+
 
 
 ### Change Password 
@@ -156,18 +178,23 @@ Request Type: POST
 Purpose: Changes the password for the current user 
 
 Request Body:
+```json
 {
   "new_password": "newsecurepassword"
 }
+```
 
 Response Format: JSON
 
 Success Response Example:
 Code: 200
-Content: {
-                "status": "success",
-                "message": "Password changed successfully"
-            }
+Content: 
+```json
+{
+  "status": "success",
+  "message": "Password changed successfully"
+}
+```
 
 Example Request:
 curl -X POST http://localhost:5000/api/change-password -H "Content-Type: application/json" \
@@ -175,10 +202,12 @@ curl -X POST http://localhost:5000/api/change-password -H "Content-Type: applica
 
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "Password changed successfully"
 }
+```
 
 
 ### Reset users 
@@ -197,20 +226,24 @@ Response Format: JSON
 
 Success Response Example:
 Code: 200
-Content: {
+Content: 
+```json
+{
   "status": "success",
   "message": "Users table recreated successfully"
 }
+```
 
 Example Request:
 curl -X DELETE http://localhost:5000/api/reset-users
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "Users table recreated successfully"
 }
-
+```
 
 ### Reset Countries 
 
@@ -227,19 +260,24 @@ Response Format: JSON
 
 Success Response Example:
 Code: 200
-Content: {
-                "status": "success",
-                "message": f"CountryData table recreated successfully"
-            }
+Content: 
+```json
+{
+  "status": "success",
+  "message": f"CountryData table recreated successfully"
+}
+```
 
 Example Request:
 curl -X DELETE http://localhost:5000/api/reset-countries
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "CountryData table recreated successfully"
 }
+```
 
 
 ### Create a Country 
@@ -250,6 +288,7 @@ Request Type: POST
 Purpose: Adds a new country to the database 
 
 Request Body:
+```json
 {
   "name": "Japan",
   "capital": "Tokyo",
@@ -261,16 +300,20 @@ Request Body:
   "flag_url": "https://flagcdn.com/jp.svg",
   "timezones": ["UTC+09:00"]
 }
+```
 
 
 Response Format: JSON
 
 Success Response Example:
 Code: 201
-Content: {
+Content: 
+```json
+{
   "status": "success",
   "message": "Country {name} added successfully"
 }
+```
 
 Example Request:
 curl -X POST http://localhost:5000/api/create-country -H "Content-Type: application/json" \
@@ -278,10 +321,12 @@ curl -X POST http://localhost:5000/api/create-country -H "Content-Type: applicat
 
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "Country {name} added successfully"
 }
+```
 
 ### Delete a Country
 
@@ -298,19 +343,24 @@ Response Format: JSON
 
 Success Response Example:
 Code: 200
-Content:{
+Content:
+```json
+{
   "status": "success",
   "message": "Country with name Japan deleted successfully"
 }
+```
 
 Example Request:
 curl -X DELETE http://localhost:5000/api/delete-country/Japan
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "Country with name Japan deleted successfully"
 }
+```
 
 
 
@@ -330,21 +380,195 @@ Response Format: JSON
 Success Response Example:
 Code: 200
 Content: 
+```json
 {
   "status": "success",
   "message": "CountryData retrieved successfully",
   "countries": [ ... ]
 }
+```
 
 Example Request:
 curl -X GET http://localhost:5000/api/get-all-countries-from-database
 
 Example Response:
+```json
 {
   "status": "success",
   "message": "CountryData retrieved successfully",
   "countries": [ ... ]
 }
+```
+
+### Add Country to Favorites 
+
+
+Route: /api/add-country-to-favorites
+
+Request Type: POST
+
+Purpose: Adds a country to the favorites list 
+
+Request Body:
+```json
+{
+  "name": "Japan"
+}
+```
+
+Response Format: JSON
+
+Success Response Example:
+Code: 201
+Content: 
+
+```json
+{
+  "status": "success",
+  "message": "Country 'Japan' added to favorites"
+}
+```
+
+Example Request:
+curl -X POST http://localhost:5000/api/add-country-to-favorites \
+-H "Content-Type: application/json" \
+-d '{"name": "Japan"}
+
+Example Response:
+```json
+{
+  "status": "success",
+  "message": "Country 'Japan' added to favorites"
+}
+```
+
+
+### remove Country from Favorites 
+
+
+Route: /api/remove-country-from-favorites
+
+Request Type: DELETE
+
+Purpose: removes a country from the favorites list by name 
+
+Request Body:
+{
+  "name": "Japan"
+}
+
+Response Format: JSON
+
+Success Response Example:
+Code: 200
+Content: 
+
+```json
+{
+  "status": "success",
+  "message": "Country 'Japan' removed from favorites"
+}
+```
+
+Example Request:
+curl -X DELETE http://localhost:5000/api/remove-country-from-favorites \
+-H "Content-Type: application/json" \
+-d '{"name": "Japan"}'
+
+
+Example Response:
+```json
+{
+  "status": "success",
+  "message": "Country 'Japan' removed from favorites"
+}
+```
+
+
+### Get Length of Favorites 
+
+
+Route: /api/get-favorites-length-population
+
+Request Type: GET
+
+Purpose: Get the total number of favorites and their combined populations 
+
+Request Body:
+None
+
+Response Format: JSON
+
+Success Response Example:
+Code: 200
+Content: 
+
+```json
+{
+  "status": "success",
+  "favorites_length": 2,
+  "favorites_population": 389876543
+}
+
+```
+
+Example Request:
+curl -X GET http://localhost:5000/api/get-favorites-length-population
+
+Example Response:
+```json
+{
+  "status": "success",
+  "favorites_length": 2,
+  "favorites_population": 389876543
+}
+```
+
+
+### Compare Two Favorite Countries
+
+
+Route: /api/compare-two-favorites
+
+Request Type: GET
+
+Purpose: Compare two favorite countries and return their difference
+
+Request Body:
+```json
+{
+  "country1_name": "Japan",
+  "country2_name": "Canada"
+}
+```
+
+Response Format: JSON
+
+Success Response Example:
+Code: 200
+Content: 
+
+```json
+{
+  "status": "success",
+  "favorites_length": favorites_length,
+  "favorites_population": favorites_population
+}
+```
+
+Example Request:
+curl -X GET http://localhost:5000/api/compare-two-favorites \
+-H "Content-Type: application/json" \
+-d '{"country1_name": "Japan", "country2_name": "Canada"}'
+
+Example Response:
+```json
+{
+  "status": "success",
+  "favorites_length": favorites_length,
+  "favorites_population": favorites_population
+}
+```
 
 
 <!--
